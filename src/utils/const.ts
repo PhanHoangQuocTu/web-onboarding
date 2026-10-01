@@ -18,6 +18,7 @@ export const GA_EVENT = {
   PAY_APPLE_PAY_CLICK: 'pay_apple_pay_click',
   PAY_PAYPAL_CLICK: 'pay_paypal_click',
   PAY_SUBMIT_CLICK: 'pay_submit_click',
+  PADDLE_CHECKOUT_COMPLETE: 'paddle_checkout_complete',
   CAROUSEL_CLICK: 'template_carousel_click',
 } as const
 
@@ -32,6 +33,7 @@ export const GA_PARAM = {
   VALUE: 'value',
   DIRECTION: 'direction',
   METHOD: 'method',
+  TRANSACTION_ID: 'transaction_id',
 } as const
 
 export const GA_VALUE = {

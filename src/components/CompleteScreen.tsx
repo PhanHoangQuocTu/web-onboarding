@@ -3,28 +3,37 @@
 import { useState } from 'react'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckIcon } from '@/components/CheckIcon'
-import { nextCharge, price } from '@/lib/pricing'
+import { isPaddleSandbox } from '@/lib/paddle'
 
-// TODO: replace with the activation code returned by the backend after a successful payment
-const PLACEHOLDER_CODE = 'BCF4-H49E-DXT5'
 const PLAN_LABEL = { trial: '3-Day Trial', weekly: 'Weekly', yearly: 'Yearly' } as const
+const METHOD_LABEL: Record<string, string> = {
+  card: 'Card',
+  'apple-pay': 'Apple Pay',
+  'google-pay': 'Google Pay',
+  paypal: 'PayPal',
+}
 
 export function CompleteScreen() {
-  const { answers, email, plan, receipt, ready } = useFlow()
+  const { answers, receipt, go, ready } = useFlow()
   const [copied, setCopied] = useState(false)
   if (!ready) return null
-  const code = PLACEHOLDER_CODE
-  const shown = receipt ?? {
-    plan,
-    today: price(plan).today,
-    next: nextCharge(plan),
-    method: 'Card',
-  }
+  if (!receipt?.transactionId)
+    return (
+      <div className="mx-auto w-full max-w-[342px] text-center">
+        <h2>Complete your checkout</h2>
+        <p className="mt-3 text-base text-[#5f5a72]">
+          We could not find a completed payment for this plan.
+        </p>
+        <button type="button" onClick={() => go('pricing')} className="primary-button mt-7 w-full">
+          Back to checkout
+        </button>
+      </div>
+    )
   const rows: [string, string][] = [
-    ['Plan', PLAN_LABEL[shown.plan]],
-    ['Paid today', shown.today],
-    ['Paid with', shown.method],
-    ['Next charge', shown.next],
+    ['Plan', PLAN_LABEL[receipt.plan]],
+    ['Paid today', receipt.paidToday || 'See Paddle receipt'],
+    ['Paid with', METHOD_LABEL[receipt.method] || receipt.method],
+    ['Next charge', 'See Paddle receipt for amount and date'],
   ]
   const tips = [
     [
@@ -51,11 +60,11 @@ export function CompleteScreen() {
   ]
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(receipt.transactionId)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* Clipboard may be unavailable; the code stays visible to copy by hand. */
+      /* Clipboard may be unavailable; the reference stays visible to copy by hand. */
     }
   }
   return (
@@ -83,18 +92,20 @@ export function CompleteScreen() {
         </svg>
         <h2 className="mt-4">You’re subscribed!</h2>
         <p className="mt-2 max-w-62 text-base text-[#5f5a72]">
-          Welcome to Premium. Use your code to unlock it in the app.
+          {isPaddleSandbox
+            ? 'Your Paddle sandbox checkout is complete. No live charge was made.'
+            : 'Your payment is complete. Check your email for the Paddle receipt.'}
         </p>
       </div>
       <section className="mt-7 rounded-[28px] border-2 border-[#5b45c8] bg-white p-5">
         <p className="brand-font text-sm font-semibold uppercase tracking-wider text-[#5b45c8]">
-          Your activation code
+          Payment reference
         </p>
         <div
-          aria-label="Activation code"
-          className="brand-font mt-3 rounded-2xl bg-[#ece8f2] py-4 text-center text-xl font-bold tracking-[0.12em] text-[#231f33]"
+          aria-label="Paddle transaction ID"
+          className="brand-font mt-3 break-all rounded-2xl bg-[#ece8f2] px-3 py-4 text-center text-base font-bold text-[#231f33]"
         >
-          {code}
+          {receipt.transactionId}
         </div>
         <button
           type="button"
@@ -117,11 +128,10 @@ export function CompleteScreen() {
               strokeLinejoin="round"
             />
           </svg>
-          {copied ? 'Copied!' : 'Copy code'}
+          {copied ? 'Copied!' : 'Copy reference'}
         </button>
-        <p className="mt-4 text-lg max-w-[266px] font-semibold text-[#231f33]">
-          Here’s the code to activate your membership. Open AR Sketch &amp; Trace and enter it to
-          unlock Premium.
+        <p className="mt-4 max-w-[266px] text-base font-semibold text-[#231f33]">
+          Keep this reference for support. App activation is not connected yet.
         </p>
         <p className="mt-3 flex gap-2.5 text-sm text-[#5f5a72]">
           <svg
@@ -148,8 +158,7 @@ export function CompleteScreen() {
             />
           </svg>
           <span className="text-[#5F5A72]">
-            We’ve also sent a code to <b className="text-[#231f33]">{email || 'your email'}</b>, so
-            you can activate your premium in the app from there too.
+            Paddle sends the payment receipt to the email used at checkout.
           </span>
         </p>
       </section>
@@ -216,7 +225,7 @@ export function CompleteScreen() {
         {[
           [
             'Renewal',
-            `We charge ${shown.method} automatically and email you a new access code on that date.`,
+            'Paddle charges your saved payment method according to the subscription terms.',
           ],
           ['Cancel', 'Anytime before the renewal date, from the link in your receipt email'],
         ].map(([label, value]) => (

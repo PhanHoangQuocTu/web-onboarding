@@ -1,14 +1,15 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckoutSheet } from '@/components/CheckoutSheet'
 import { CheckIcon } from '@/components/CheckIcon'
 import { PaymentActions } from '@/components/PaymentActions'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
 import { trackEvent } from '@/lib/gtag'
+import { openPaddleCheckout, subscribePaddleEvents, type PaymentMethod } from '@/lib/paddle'
 import { subject } from '@/lib/plan'
-import { amountDueToday, money, price, TRIAL, WEEK, YEAR_50_OFF } from '@/lib/pricing'
+import { amountDueToday, money, price, TRIAL, WEEK, YEAR_50_OFF, type Plan } from '@/lib/pricing'
 import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const plans = [
@@ -36,10 +37,68 @@ const plans = [
 ] as const
 
 export function PricingScreen() {
-  const { answers, plan, setPlan, ready } = useFlow()
+  const { answers, plan, setPlan, email, setReceipt, go, ready } = useFlow()
   const [sheet, setSheet] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const plansRef = useRef<HTMLDivElement>(null)
-  const closeSheet = useCallback(() => setSheet(false), [])
+  const activePlan = useRef<Plan | null>(null)
+  const completedTransaction = useRef<string | null>(null)
+  const closeSheet = useCallback(() => {
+    activePlan.current = null
+    setSheet(false)
+  }, [])
+  useEffect(
+    () =>
+      subscribePaddleEvents((event) => {
+        if (event.name === 'checkout.payment.initiated' && activePlan.current) {
+          trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
+            [GA_PARAM.PLAN]: activePlan.current,
+            [GA_PARAM.CURRENCY]: GA_CURRENCY,
+            [GA_PARAM.VALUE]: amountDueToday(activePlan.current),
+            [GA_PARAM.METHOD]: event.data?.payment.method_details.type ?? 'card',
+          })
+        }
+        if (event.name === 'checkout.completed' && activePlan.current && event.data) {
+          const transactionId = event.data.transaction_id
+          if (!transactionId || completedTransaction.current === transactionId) return
+          completedTransaction.current = transactionId
+          const purchasedPlan = activePlan.current
+          const currencyDigits =
+            new Intl.NumberFormat('en', {
+              style: 'currency',
+              currency: event.data.currency_code,
+            }).resolvedOptions().maximumFractionDigits ?? 2
+          const paid = event.data.totals.total / 10 ** currencyDigits
+          trackEvent(GA_EVENT.PADDLE_CHECKOUT_COMPLETE, {
+            [GA_PARAM.PLAN]: purchasedPlan,
+            [GA_PARAM.TRANSACTION_ID]: transactionId,
+            [GA_PARAM.CURRENCY]: event.data.currency_code,
+            [GA_PARAM.VALUE]: paid,
+          })
+          setReceipt({
+            plan: purchasedPlan,
+            transactionId,
+            method: event.data.payment.method_details.type,
+            paidToday: new Intl.NumberFormat('en', {
+              style: 'currency',
+              currency: event.data.currency_code,
+            }).format(paid),
+          })
+          activePlan.current = null
+          setSheet(false)
+          go('complete')
+        }
+        if (event.name === 'checkout.error' || event.name === 'checkout.payment.error') {
+          setCheckoutError(event.detail || 'Payment could not be completed. Please try again.')
+        }
+        if (event.name === 'checkout.failed') {
+          setCheckoutError('Payment could not be completed. Please try again.')
+        }
+        if (event.name === 'checkout.closed') activePlan.current = null
+      }),
+    [go, setReceipt],
+  )
   if (!ready) return null
   const amount = price(plan)
   const payParams = {
@@ -49,6 +108,22 @@ export function PricingScreen() {
   }
   const scrollToPlans = () =>
     plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const startCheckout = async (method: PaymentMethod) => {
+    if (busy) return
+    activePlan.current = plan
+    setCheckoutError(null)
+    setBusy(true)
+    try {
+      await openPaddleCheckout({ plan, email, method })
+      trackEvent(GA_EVENT.BEGIN_CHECKOUT, { ...payParams, [GA_PARAM.METHOD]: method })
+      setSheet(false)
+    } catch (error) {
+      activePlan.current = null
+      setCheckoutError(error instanceof Error ? error.message : 'Paddle checkout could not open.')
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <>
       {/* <p className="brand-font mb-3 text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
@@ -108,19 +183,38 @@ export function PricingScreen() {
         ))}
       </div>
       <PaymentActions
-        onGooglePayClick={() => trackEvent(GA_EVENT.PAY_GOOGLE_PAY_CLICK, payParams)}
-        onApplePayClick={() => trackEvent(GA_EVENT.PAY_APPLE_PAY_CLICK, payParams)}
-        onPayPalClick={() => trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)}
+        busy={busy}
+        onGooglePayClick={() => {
+          trackEvent(GA_EVENT.PAY_GOOGLE_PAY_CLICK, payParams)
+          void startCheckout('google_pay')
+        }}
+        onApplePayClick={() => {
+          trackEvent(GA_EVENT.PAY_APPLE_PAY_CLICK, payParams)
+          void startCheckout('apple_pay')
+        }}
+        onPayPalClick={() => {
+          trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)
+          void startCheckout('paypal')
+        }}
         onCardClick={() => {
-          trackEvent(GA_EVENT.BEGIN_CHECKOUT, payParams)
+          setCheckoutError(null)
+          activePlan.current = plan
           setSheet(true)
         }}
       />
+      {checkoutError && (
+        <p role="alert" className="mt-3 text-center text-sm text-red-700">
+          {checkoutError}
+        </p>
+      )}
       <div className="mt-3 ">
         <p className="text-center text-sm text-[#5f5a72]">
           Due today {amount.today}. {plan === 'yearly' && '50% off the first year.'}
         </p>
         <p className="text-center text-sm text-[#5f5a72]">{amount.next}.</p>
+        <p className="mt-1 text-center text-xs text-[#5f5a72]">
+          Final total and tax are shown in Paddle checkout.
+        </p>
       </div>
       <p className="mt-4 flex items-center justify-center gap-2 text-center text-base font-semibold text-[#231f33]">
         <span className="grid size-5.5 place-items-center rounded-full bg-[#5b45c8] text-white">
@@ -146,7 +240,7 @@ export function PricingScreen() {
         ))}
       </div>
       <PricingDetails onChoose={scrollToPlans} />
-      {sheet && <CheckoutSheet onClose={closeSheet} />}
+      {sheet && <CheckoutSheet onClose={closeSheet} error={checkoutError} />}
     </>
   )
 }

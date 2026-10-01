@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
+import { isValidEmail } from '@/lib/email'
 import { useFlow } from './FlowProvider'
 import { StickyAction } from './Ui'
 
@@ -8,7 +9,7 @@ export function EmailScreen() {
   const { email, setEmail, go, ready } = useFlow()
   const input = useRef<HTMLInputElement>(null)
   if (!ready) return null
-  const canContinue = /^[^\s@.]+(?:\.[^\s@.]+)*@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email.trim())
+  const canContinue = isValidEmail(email)
 
   const continueToOffer = () => {
     if (!canContinue) return
@@ -35,7 +36,7 @@ export function EmailScreen() {
         className="mt-1 h-15 w-full rounded-xl border border-[#d3ccdf] bg-white px-3 text-base text-[#231f33] outline-none focus:border-[#5b45c8]"
       />
       <p className="mt-3 text-[11px] leading-[1.4] text-[#5f5a72]">
-        Prototype: your email stays in this page. No email is sent or account created.
+        Your email will be used to prefill Paddle checkout.
       </p>
       <StickyAction onClick={continueToOffer} disabled={!canContinue}>
         Continue
