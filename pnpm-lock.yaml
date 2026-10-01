@@ -11,6 +11,9 @@ importers:
       firebase:
         specifier: 12.19.0
         version: 12.19.0
+      '@paddle/paddle-js':
+        specifier: ^1.6.5
+        version: 1.6.5
       next:
         specifier: 16.2.6
         version: 16.2.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -664,6 +667,8 @@ packages:
 
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
+  '@paddle/paddle-js@1.6.5':
+    resolution: {integrity: sha512-uFRvptUzYRqRlqTU5XmfcZWC9BGVYpZNdANd3giJjZbJlHesnE4gn8PyjtYpesU1ar2ZGPuJxHvrrSIV9jjdVw==}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -1648,6 +1653,7 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.2': {}
+  '@paddle/paddle-js@1.6.5': {}
 
   '@swc/helpers@0.5.15':
     dependencies:

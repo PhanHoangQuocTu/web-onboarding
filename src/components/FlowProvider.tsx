@@ -6,7 +6,7 @@ import type { Answers, AnswerValue } from '@/lib/quiz'
 import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 import type { Plan } from '@/lib/pricing'
 
-type Receipt = { plan: Plan; today: string; next: string; method: string }
+type Receipt = { plan: Plan; transactionId: string; method: string; paidToday: string }
 type FlowState = {
   step: string
   answers: Answers
@@ -78,7 +78,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     trackEvent(GA_EVENT.OFFER_REVEAL, { [GA_PARAM.METHOD]: method })
     update((s) => ({ ...s, offerRevealed: true }))
   }
-  const setReceipt = (receipt: Receipt) => update((s) => ({ ...s, receipt }))
+  const setReceipt = useCallback((receipt: Receipt) => update((s) => ({ ...s, receipt })), [])
   return (
     <FlowContext.Provider
       value={{ ...state, ready, go, setAnswer, setPlan, setEmail, revealOffer, setReceipt }}

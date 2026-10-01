@@ -69,11 +69,13 @@ export function PaymentActions({
   onApplePayClick,
   onPayPalClick,
   onCardClick,
+  busy = false,
 }: {
   onGooglePayClick: () => void
   onApplePayClick: () => void
   onPayPalClick: () => void
   onCardClick: () => void
+  busy?: boolean
 }) {
   const button =
     'brand-font flex h-15 w-full items-center justify-center gap-3 rounded-full text-xl font-semibold'
@@ -82,32 +84,37 @@ export function PaymentActions({
     <div className="mt-5 space-y-3">
       <button
         type="button"
-        disabled
+        disabled={busy}
         onClick={onGooglePayClick}
-        className={`${button} cursor-not-allowed border border-[#e7e3eb] bg-white text-[#231f33]`}
+        className={`${button} border border-[#e7e3eb] bg-white text-[#231f33] disabled:cursor-wait`}
       >
         <GoogleIcon />
         Pay with Google Pay
       </button>
       <button
         type="button"
-        disabled
+        disabled={busy}
         onClick={onApplePayClick}
-        className={`${button} cursor-not-allowed bg-black text-white`}
+        className={`${button} bg-black text-white disabled:cursor-wait`}
       >
         <AppleIcon />
         Pay with Apple Pay
       </button>
       <button
         type="button"
-        disabled
+        disabled={busy}
         onClick={onPayPalClick}
-        className={`${button} cursor-not-allowed bg-[#ffca3a] text-[#003087]`}
+        className={`${button} bg-[#ffca3a] text-[#003087] disabled:cursor-wait`}
       >
         <PayPalIcon />
         Pay with PayPal
       </button>
-      <button type="button" onClick={onCardClick} className={`primary-button ${button}`}>
+      <button
+        type="button"
+        onClick={onCardClick}
+        disabled={busy}
+        className={`primary-button ${button} disabled:cursor-wait`}
+      >
         <CardIcon />
         Pay with card
       </button>
