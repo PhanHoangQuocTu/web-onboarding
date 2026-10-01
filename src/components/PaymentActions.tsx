@@ -1,4 +1,38 @@
-import { ExpressWalletSlot } from '@/components/ExpressWallet'
+import type { WalletMethod } from '@/lib/paddle'
+
+function GoogleIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <path
+        d="M20.68 11.2292C20.68 10.5142 20.6158 9.82669 20.4967 9.16669H11V13.0717H16.4267C16.1883 14.3275 15.4733 15.3909 14.4008 16.1059V18.645H17.6733C19.58 16.885 20.68 14.3 20.68 11.2292Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M10.9997 21.0833C13.7222 21.0833 16.0047 20.185 17.673 18.645L14.4005 16.1058C13.5022 16.7108 12.3564 17.0775 10.9997 17.0775C8.37805 17.0775 6.15055 15.3083 5.35305 12.925H1.99805V15.5283C3.65721 18.8192 7.05805 21.0833 10.9997 21.0833Z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.35366 12.9158C5.15199 12.3108 5.03283 11.6692 5.03283 11C5.03283 10.3308 5.15199 9.68917 5.35366 9.08417V6.48083H1.99866C1.31116 7.8375 0.916992 9.36834 0.916992 11C0.916992 12.6317 1.31116 14.1625 1.99866 15.5192L4.61116 13.4842L5.35366 12.9158Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M10.9997 4.93169C12.4847 4.93169 13.8047 5.44502 14.8589 6.43502L17.7464 3.54752C15.9955 1.91585 13.7222 0.916687 10.9997 0.916687C7.05805 0.916687 3.65721 3.18085 1.99805 6.48085L5.35305 9.08419C6.15055 6.70085 8.37805 4.93169 10.9997 4.93169Z"
+        fill="#EA4335"
+      />
+    </svg>
+  )
+}
+
+function AppleIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <path
+        d="M11.1398 6.32133C10.2708 6.32133 8.92605 5.33317 7.5098 5.368C5.6398 5.39275 3.92563 6.45242 2.96222 8.13083C1.02163 11.4996 2.46172 16.4753 4.35463 19.2133C5.28322 20.5462 6.37863 22.0458 7.83063 21.9991C9.22397 21.9395 9.74647 21.0943 11.4377 21.0943C13.1161 21.0943 13.5919 21.9991 15.0677 21.9633C16.5683 21.9395 17.5207 20.6067 18.4374 19.261C19.4971 17.7137 19.9371 16.2131 19.9609 16.1306C19.9251 16.1187 17.0441 15.0113 17.0092 11.6783C16.9854 8.89167 19.2826 7.55883 19.3898 7.49925C18.0799 5.58342 16.0687 5.36892 15.3656 5.32125C13.5323 5.17825 11.9969 6.32133 11.1398 6.32133ZM14.2363 3.51083C15.0091 2.58317 15.5196 1.28608 15.3776 0C14.2711 0.0476667 12.9374 0.737917 12.1399 1.6665C11.4249 2.48783 10.8071 3.80967 10.973 5.071C12.1995 5.16633 13.4617 4.44033 14.2354 3.51175"
+        fill="white"
+      />
+    </svg>
+  )
+}
 
 function PayPalIcon() {
   return (
@@ -33,10 +67,14 @@ function CardIcon() {
 }
 
 export function PaymentActions({
+  wallet,
+  onWalletClick,
   onPayPalClick,
   onCardClick,
   busy = false,
 }: {
+  wallet: WalletMethod | null
+  onWalletClick: (method: WalletMethod) => void
   onPayPalClick: () => void
   onCardClick: () => void
   busy?: boolean
@@ -46,7 +84,28 @@ export function PaymentActions({
 
   return (
     <div className="mt-5 space-y-3">
-      <ExpressWalletSlot />
+      {wallet === 'google_pay' && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onWalletClick(wallet)}
+          className={`${button} border border-[#e7e3eb] bg-white text-[#231f33] disabled:cursor-wait`}
+        >
+          <GoogleIcon />
+          Pay with Google Pay
+        </button>
+      )}
+      {wallet === 'apple_pay' && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onWalletClick(wallet)}
+          className={`${button} bg-black text-white disabled:cursor-wait`}
+        >
+          <AppleIcon />
+          Pay with Apple Pay
+        </button>
+      )}
       <button
         type="button"
         disabled={busy}

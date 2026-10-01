@@ -24,7 +24,7 @@ export function LoadingScreen() {
   }, [go])
 
   return (
-    <div className="flex flex-col items-center pt-7">
+    <div className="flex flex-1 flex-col items-center justify-center pb-10">
       <div className="relative size-56">
         <svg className="size-full -rotate-90" viewBox="0 0 200 200" aria-hidden="true">
           <circle cx="100" cy="100" r="86" fill="none" stroke="#ddd7e8" strokeWidth="12" />
@@ -41,15 +41,16 @@ export function LoadingScreen() {
             strokeDashoffset={100 - progress}
           />
         </svg>
-        <b className="brand-font absolute inset-0 grid place-items-center text-[4rem] text-[#231f33] tabular-nums">
-          {progress}%
+        <b className="brand-font absolute inset-0 flex items-center justify-center text-5xl leading-none text-[#231f33] tabular-nums">
+          {progress}
+          <span className="ml-0.5 text-2xl">%</span>
         </b>
       </div>
       <p className="brand-font text-center mt-8 text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
         Building your plan
       </p>
 
-      <ul className="mt-2 w-full px-16">
+      <ul className="mx-auto mt-2 w-fit">
         {lines.map((line, i) => (
           <li
             key={line}

@@ -1,18 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useFlow } from '@/components/FlowProvider'
 import { ScratchCard } from '@/components/ScratchCard'
 import { StickyAction } from '@/components/Ui'
-import { openExpressCheckout } from '@/lib/paddle'
 import { GA_VALUE } from '@/utils/const'
 
 export function OfferScreen() {
-  const { offerRevealed, revealOffer, go, ready, plan, email, sessionId } = useFlow()
-  // Loads the hidden Apple Pay / Google Pay button now so the paywall knows if it is available.
-  useEffect(() => {
-    if (ready) openExpressCheckout({ plan, discounted: true, email, sessionId }).catch(() => {})
-  }, [ready, plan, email, sessionId])
+  const { offerRevealed, revealOffer, go, ready } = useFlow()
   if (!ready) return null
 
   return (
