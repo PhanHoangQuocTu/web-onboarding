@@ -1,5 +1,5 @@
 {
-  "name": "ar-sketch-next-quiz",
+  "name": "ar-sketch",
   "private": true,
   "scripts": {
     "dev": "next dev",

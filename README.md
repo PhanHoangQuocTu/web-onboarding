@@ -24,6 +24,16 @@ pm2 start pm2.config.json
 
 PM2 serves the production build on port 5123. Run `pm2 restart ar-sketch-quiz` after rebuilding.
 
+## Run with Docker Compose
+
+From `quiz`, copy `.env.example` to `.env.local` and set the environment values, then build and start the container:
+
+```bash
+docker compose up --build -d
+```
+
+Open http://localhost:5123. The build and container both read `.env.local`; no build arguments are needed. Rebuild after changing `NEXT_PUBLIC_` values because Next.js embeds them in the client bundle.
+
 The visible promo code comes from `NEXT_PUBLIC_PROMO_CODE` in `.env.local`. Copy `.env.example` when setting up another environment. Restart the Next.js server after changing it. This is a public value embedded in the client build.
 
 The original source has no payment integration. Checkout is a clearly labeled preview: it does not collect card details or claim a purchase. The promo code is displayed on the offer card, but pricing and checkout do not apply the discount yet. Connect a real payment provider and confirmed offer before enabling payment.
