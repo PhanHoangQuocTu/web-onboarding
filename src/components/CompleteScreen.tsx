@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckIcon } from '@/components/CheckIcon'
+import { useActivation } from '@/lib/activation'
 import { isPaddleSandbox } from '@/lib/paddle'
 
 const PLAN_LABEL = { trial: '3-Day Trial', weekly: 'Weekly', yearly: 'Yearly' } as const
@@ -14,8 +15,9 @@ const METHOD_LABEL: Record<string, string> = {
 }
 
 export function CompleteScreen() {
-  const { answers, receipt, go, ready } = useFlow()
+  const { answers, receipt, sessionId, go, ready } = useFlow()
   const [copied, setCopied] = useState(false)
+  const activation = useActivation(receipt?.transactionId, sessionId)
   if (!ready) return null
   if (!receipt?.transactionId)
     return (
@@ -58,9 +60,10 @@ export function CompleteScreen() {
       }[String(answers.remind)] || 'Draw whenever suits you.',
     ],
   ]
+  const code = activation.state === 'ready' ? activation.code : null
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(receipt.transactionId)
+      await navigator.clipboard.writeText(code ?? receipt.transactionId)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -99,18 +102,21 @@ export function CompleteScreen() {
       </div>
       <section className="mt-7 rounded-[28px] border-2 border-[#5b45c8] bg-white p-5">
         <p className="brand-font text-sm font-semibold uppercase tracking-wider text-[#5b45c8]">
-          Payment reference
+          {code || activation.state === 'loading' ? 'Your activation code' : 'Payment reference'}
         </p>
         <div
-          aria-label="Paddle transaction ID"
+          aria-label={code ? 'Activation code' : 'Paddle transaction ID'}
+          aria-live="polite"
           className="brand-font mt-3 break-all rounded-2xl bg-[#ece8f2] px-3 py-4 text-center text-base font-bold text-[#231f33]"
         >
-          {receipt.transactionId}
+          {code ??
+            (activation.state === 'loading' ? 'Preparing your code…' : receipt.transactionId)}
         </div>
         <button
           type="button"
           onClick={copy}
-          className="brand-font mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#2d2550] text-lg font-semibold text-white"
+          disabled={activation.state === 'loading'}
+          className="brand-font mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#2d2550] text-lg font-semibold text-white disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
             <path
@@ -128,10 +134,14 @@ export function CompleteScreen() {
               strokeLinejoin="round"
             />
           </svg>
-          {copied ? 'Copied!' : 'Copy reference'}
+          {copied ? 'Copied!' : code ? 'Copy code' : 'Copy reference'}
         </button>
         <p className="mt-4 max-w-[266px] text-base font-semibold text-[#231f33]">
-          Keep this reference for support. App activation is not connected yet.
+          {code
+            ? 'Open AR Sketch & Trace and enter this code to unlock Premium.'
+            : activation.state === 'loading'
+              ? 'Your code will appear here in a few seconds.'
+              : 'Your code is still being prepared. Refresh this page in a minute, or contact support with this reference.'}
         </p>
         <p className="mt-3 flex gap-2.5 text-sm text-[#5f5a72]">
           <svg

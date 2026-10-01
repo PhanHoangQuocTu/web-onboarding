@@ -7,4 +7,23 @@ services:
       - .env.local
     ports:
       - '5123:5123'
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - .env.local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

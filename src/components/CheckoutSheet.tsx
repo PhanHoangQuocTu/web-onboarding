@@ -7,7 +7,7 @@ import { useFlow } from '@/components/FlowProvider'
 import { trackEvent } from '@/lib/gtag'
 import {
   CARD_CHECKOUT_TARGET,
-  closeInlinePaddleCheckout,
+  closePaddleCheckout,
   isPaddleSandbox,
   openPaddleCheckout,
   subscribePaddleEvents,
@@ -16,15 +16,24 @@ import { makePlan, skill, subject } from '@/lib/plan'
 import { price } from '@/lib/pricing'
 import { GA_EVENT, GA_PARAM } from '@/utils/const'
 
+// Paddle.js event totals are already in major units (e.g. 6.99).
 function formatCheckoutTotal(total: number, currency: string) {
-  const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency })
-  const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2
-  return formatter.format(total / 10 ** digits)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(total)
 }
 
-export function CheckoutSheet({ onClose, error }: { onClose: () => void; error: string | null }) {
-  const { answers, plan, email } = useFlow()
+export function CheckoutSheet({
+  onClose,
+  error,
+  discounted,
+}: {
+  onClose: () => void
+  error: string | null
+  discounted: boolean
+}) {
+  const { answers, plan, email, sessionId } = useFlow()
   const heading = useRef<HTMLHeadingElement>(null)
+  // Later discount changes are applied via syncCheckoutOrder, not by reopening the form.
+  const discountedAtOpen = useRef(discounted)
   const [loading, setLoading] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
   const [checkoutTotal, setCheckoutTotal] = useState<string | null>(null)
@@ -54,7 +63,9 @@ export function CheckoutSheet({ onClose, error }: { onClose: () => void; error: 
 
     void openPaddleCheckout({
       plan,
+      discounted: discountedAtOpen.current,
       email,
+      sessionId,
       method: 'card',
       displayMode: 'inline',
       signal: controller.signal,
@@ -75,16 +86,20 @@ export function CheckoutSheet({ onClose, error }: { onClose: () => void; error: 
     return () => {
       controller.abort()
       unsubscribe()
-      void closeInlinePaddleCheckout()
+      void closePaddleCheckout('card')
     }
-  }, [plan, email])
+  }, [plan, email, sessionId])
 
   const planKeys = makePlan(answers)
     .filter((key) => key !== 'photo')
     .slice(0, 3)
-  const cost = price(plan)
+  const cost = price(plan, discounted)
   const title =
-    plan === 'trial' ? '3-Day Trial' : plan === 'yearly' ? 'Yearly plan · 50% off' : 'Weekly plan'
+    plan === 'trial'
+      ? '3-Day Trial'
+      : plan === 'yearly'
+        ? `Yearly plan${discounted ? ' · 50% off' : ''}`
+        : 'Weekly plan'
 
   const dialog = (
     <div
@@ -136,7 +151,7 @@ export function CheckoutSheet({ onClose, error }: { onClose: () => void; error: 
               <b className="brand-font text-2xl text-[#231f33]">{checkoutTotal ?? cost.today}</b>
             </div>
             <small className="mt-1 block text-sm leading-snug text-[#5f5a72]">
-              {plan === 'yearly' && '50% off the first year · '}
+              {plan === 'yearly' && discounted && '50% off the first year · '}
               {cost.next}
             </small>
           </div>

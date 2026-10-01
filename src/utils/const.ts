@@ -1,6 +1,4 @@
 export const GA_ID = process.env.NEXT_PUBLIC_GA_ID?.trim()
-export const PROMO_CODE = process.env.NEXT_PUBLIC_PROMO_CODE?.trim()
-
 export const GA_CURRENCY = 'USD'
 
 export const GA_EVENT = {

@@ -5,3 +5,4 @@ public/art
 src/lib/source-data.json
 *.tsbuildinfo
 next-env.d.ts
+coverage
