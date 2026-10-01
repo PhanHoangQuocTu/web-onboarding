@@ -1,71 +1,109 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { useFlow } from './FlowProvider'
-import { TemplateArt } from './Art'
 import { StickyAction } from './Ui'
+import type { Answers } from '@/lib/quiz'
 
-const drawPreviews: Record<string, { image: string; subject: string }> = {
-  people: { image: 'halfbodygirl', subject: 'portrait' },
-  characters: { image: 'catgirl', subject: 'anime character' },
-  animals: { image: 'cat', subject: 'pet' },
-  nature: { image: 'daisy', subject: 'flower' },
+const drawImages = ['people', 'characters', 'animals', 'nature']
+
+function firstCopy(answers: Answers) {
+  return (
+    {
+      talent: [
+        'A lot of people feel that way at first.',
+        `Follow the lines one step at a time. By the last step, you’ve drawn this yourself.`,
+      ],
+      time: [
+        'Short on time? That’s fine.',
+        `Do a few steps today and finish this drawing tomorrow.`,
+      ],
+      start: [
+        'Then let us pick for you.',
+        'Your plan shows what to draw and where to start. Just follow the first line.',
+      ],
+    }[String(answers.block)] || ['One line at a time.', 'Follow the drawing step by step.']
+  )
 }
+
+const secondCopy = (answers: Answers) =>
+  ({
+    results: [
+      'One small win a day.',
+      'Seven days, one drawing each day. Day 1 is ready when you are.',
+    ],
+    big: [
+      'Seven days to one finished piece.',
+      'Your last day is the biggest drawing in your plan.',
+    ],
+    streaks: ['A streak you can see.', 'Finish a drawing, light up the day. Day 1 starts it.'],
+  })[String(answers.motive)] || [
+    'One drawing a day.',
+    'Seven days, one drawing each day. Day 1 is ready when you are.',
+  ]
 
 export function BreakScreen({ part }: { part: 1 | 2 }) {
   const { answers, go, ready } = useFlow()
   if (!ready) return null
   if (part === 1) {
-    const preview = drawPreviews[String(answers.draw)] || {
-      image: 'coldgirl',
-      subject: 'cool-eyed girl',
-    }
+    const draw = drawImages.includes(String(answers.draw)) ? String(answers.draw) : 'characters'
+    const [title, lede] = firstCopy(answers)
     return (
       <>
-        <div
-          role="img"
-          aria-label={`${preview.subject} drawing preview`}
-          className="grid aspect-square w-full place-items-center overflow-hidden rounded-3xl border border-[#6d53e9] bg-white"
-        >
-          <TemplateArt name={preview.image} className="w-[80%] bg-transparent!" />
+        <div className="rise-children">
+          <div
+            role="img"
+            aria-label="Pencil sketch example"
+            className="mb-6 aspect-square w-full overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_var(--hair)]"
+          >
+            <img
+              src={`/art/draw/break1-${draw}.webp`}
+              width={720}
+              height={720}
+              alt=""
+              decoding="async"
+              className="draw-in size-full object-cover"
+            />
+          </div>
+          <h2>{title}</h2>
+          <p className="lede">{lede}</p>
         </div>
-        <h2 className="mt-5 max-w-85 text-2xl leading-tight">
-          A lot of people feel that way at first.
-        </h2>
-        <p className="mt-3 max-w-85 text-base leading-[1.45] text-[#5f5a72]">
-          Follow the lines one step at atime. By the last step, you’vedrawn this cool-eyed girl
-          yourself.
-        </p>
         <StickyAction onClick={() => go('device')}>Keep going</StickyAction>
       </>
     )
   }
+  const [title, lede] = secondCopy(answers)
   return (
     <>
-      <div className="rounded-[20px] border border-[#6d53e9] bg-white p-4">
-        <ol className="flex justify-between gap-1" aria-label="Seven-day drawing plan">
-          {Array.from({ length: 7 }, (_, index) => (
-            <li
-              key={index}
-              aria-label={`Day ${index + 1}${index === 0 ? ', ready' : ''}`}
-              className={`day-reveal grid size-[clamp(28px,8vw,36px)] place-items-center rounded-full border border-[#5b45c8] text-xs font-semibold ${index === 0 ? 'bg-[#5b45c8] text-white' : 'text-[#4a36ae]'}`}
-              style={{ animationDelay: `${index * 120}ms` }}
-            >
-              {index + 1}
-            </li>
-          ))}
-        </ol>
-
-        <div className="flex mt-4 justify-between text-sm font-semibold tracking-wider text-[#5f5a72]">
-          <span>DAY 1</span>
-          <span>DAY 7</span>
+      <div className="rise-children">
+        <div
+          role="img"
+          aria-label="Seven days, one drawing each day. Day 1 is first."
+          className="mb-6 flex flex-col gap-3.5 rounded-2xl bg-white px-4 pb-[22px] pt-7 shadow-[0_0_0_1px_var(--hair)]"
+        >
+          <ol className="flex justify-between">
+            {Array.from({ length: 7 }, (_, index) => (
+              <li
+                key={index}
+                className="pop"
+                style={{ '--d': `${(0.2 + (index + 1) * 0.12).toFixed(2)}s` } as CSSProperties}
+              >
+                <span
+                  className={`brand-font grid size-[38px] place-items-center rounded-full border-2 border-(--accent) text-base font-bold ${index === 0 ? 'bg-(--accent) text-white' : 'bg-white text-(--accent-text)'}`}
+                >
+                  {index + 1}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="brand-font flex justify-between text-sm font-semibold uppercase tracking-[0.04em] text-(--muted)">
+            <span>Day 1</span>
+            <span>Day 7</span>
+          </p>
         </div>
+        <h2>{title}</h2>
+        <p className="lede">{lede}</p>
       </div>
-
-      <h2 className="mt-4 text-xl leading-tight">One small win a day.</h2>
-
-      <p className="mt-2 text-sm leading-snug text-[#5f5a72]">
-        Seven days, one drawing each day. Day 1 is ready when you are.
-      </p>
       <StickyAction onClick={() => go('time')}>Almost there</StickyAction>
     </>
   )

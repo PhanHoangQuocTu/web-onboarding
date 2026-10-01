@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { OFFER_DURATION_MS } from '@/lib/pricing'
 
 function format(ms: number) {
@@ -13,9 +14,15 @@ function format(ms: number) {
 export function OfferCountdown({
   expiresAt,
   onExpire,
+  onGone,
+  showGo,
+  onGo,
 }: {
   expiresAt: number | undefined
   onExpire: () => void
+  onGone: () => void
+  showGo: boolean
+  onGo: () => void
 }) {
   const [now, setNow] = useState(() => Date.now())
   const left = expiresAt === undefined ? OFFER_DURATION_MS : expiresAt - now
@@ -24,21 +31,38 @@ export function OfferCountdown({
     if (expiresAt === undefined) return
     if (expired) {
       onExpire()
-      return
+      const id = setTimeout(onGone, 5000)
+      return () => clearTimeout(id)
     }
     // Wake up on the next whole-second boundary.
     const id = setTimeout(() => setNow(Date.now()), left % 1000 || 1000)
     return () => clearTimeout(id)
-  }, [expiresAt, expired, left, onExpire])
+  }, [expiresAt, expired, left, onExpire, onGone])
 
-  if (expired) return null
-  return (
+  const go = showGo && !expired
+  return createPortal(
     <div
       role="timer"
-      className="sticky top-3 z-30 -mx-3.5 -mt-7 mb-4 flex items-center justify-between gap-3 rounded-full bg-white px-5 py-4 shadow-[0_8px_24px_rgba(35,31,51,0.12)]"
+      className={`brand-font fixed left-1/2 top-[calc(12px+env(safe-area-inset-top,0px))] z-30 flex min-h-14 w-[calc(100%-24px)] max-w-[416px] -translate-x-1/2 items-center gap-3 rounded-[28px] py-2 pl-5 text-base font-semibold shadow-[0_0_0_1px_var(--hair),0_10px_24px_rgba(35,31,51,0.12)] ${go ? 'pr-2' : 'pr-5'} ${expired ? 'bg-(--surface-2) text-(--muted)' : 'bg-white text-(--ink)'}`}
     >
-      <span className="text-base font-semibold text-[#231f33]">Discount expires in</span>
-      <b className="brand-font text-lg font-bold text-[#4a36ae] tabular-nums">{format(left)}</b>
-    </div>
+      <span className="min-w-0 flex-1 whitespace-nowrap">
+        {expired ? 'Discount expired' : 'Discount expires in'}
+      </span>
+      {!expired && (
+        <b className="shrink-0 text-lg font-bold tracking-[-0.035em] text-(--accent-text) tabular-nums">
+          {format(left)}
+        </b>
+      )}
+      {go && (
+        <button
+          type="button"
+          onClick={onGo}
+          className="h-10 shrink-0 rounded-[20px] bg-(--primary) px-3.5 text-white hover:bg-(--primary-hover)"
+        >
+          Get my plan
+        </button>
+      )}
+    </div>,
+    document.body,
   )
 }

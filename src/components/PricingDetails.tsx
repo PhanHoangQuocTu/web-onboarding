@@ -1,12 +1,9 @@
 'use client'
 
-import { trackEvent } from '@/lib/gtag'
 import { useFlow } from './FlowProvider'
-import { IconArt } from './Art'
+import { IconArt, TemplateArt } from './Art'
 import { CheckIcon } from './CheckIcon'
-import { TemplateCarousel } from './TemplateCarousel'
 import { duration, mode, skill, subject, usesPhotos } from '@/lib/plan'
-import { GA_EVENT } from '@/utils/const'
 
 const showcaseTemplates = [
   'catgirl',
@@ -21,34 +18,41 @@ const showcaseTemplates = [
 
 const values = (answers: ReturnType<typeof useFlow>['answers']) => {
   const frustrations = Array.isArray(answers.frust) ? answers.frust : []
-  return [
-    `Trace your own photos.${frustrations.includes('photofee') ? ' No extra fee.' : ''}`,
-    ...(frustrations.includes('hidden') ? ['One clear price. No hidden charges.'] : []),
-    '1,000+ hand-drawn templates.',
-    'No ads. Cancel anytime.',
+  const has = (key: string) => frustrations.includes(key)
+  const list = [
+    { text: '1,000+ hand-drawn templates.', weight: 0 },
+    {
+      text: `Trace your own photos.${has('photofee') ? ' No extra fee.' : ''}`,
+      weight: (has('photofee') ? 2 : 0) + (usesPhotos(answers) ? 1 : 0),
+    },
+    { text: 'No ads. Cancel anytime.', weight: has('ads') ? 2 : 0 },
+    ...(has('hidden') ? [{ text: 'One clear price. No hidden charges.', weight: 2 }] : []),
   ]
+  return list.sort((a, b) => b.weight - a.weight).map((item) => item.text)
 }
+
+const h3 = 'mb-2 text-2xl font-bold tracking-[-0.02em]'
 
 export function ValuePanel() {
   const { answers } = useFlow()
   return (
-    <div className="mt-6 px-6 ">
-      <h3 className="text-lg font-bold">Why you’ll love it</h3>
-      <ul className="mt-3 space-y-2.5">
+    <section>
+      <h3 className="mb-2 text-lg font-bold">Why you’ll love it</h3>
+      <ul className="flex flex-col gap-2">
         {values(answers).map((value) => (
-          <li key={value} className="flex gap-2.5 leading-snug">
-            <span className="grid size-5.5 shrink-0 place-items-center rounded-full bg-[#5b45c8] text-sm text-white">
+          <li key={value} className="flex items-center gap-2 text-lg leading-[1.4]">
+            <span className="grid size-5.5 shrink-0 place-items-center rounded-full bg-(--accent) text-white">
               <CheckIcon />
             </span>
             {value}
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   )
 }
 
-export function PricingDetails({ onChoose }: { onChoose: () => void }) {
+export function PricingDetails() {
   const { answers } = useFlow()
   const focus =
     {
@@ -109,52 +113,61 @@ export function PricingDetails({ onChoose }: { onChoose: () => void }) {
     ],
   ]
   return (
-    <div className="mt-10 space-y-9">
-      <section>
-        <h3 className="mb-4 text-2xl font-bold">What’s in your plan</h3>
-        <ul className="space-y-3.5">
+    <>
+      <section className="mt-6">
+        <h3 className={h3}>What’s in your plan</h3>
+        <ul className="flex flex-col gap-3.5">
           {highlights.map(([icon, title, detail]) => (
             <li key={title} className="flex items-center gap-3.5">
               <IconArt name={icon} size={56} />
               <span>
-                <b className="block text-[#231f33]">{title}</b>
-                <small className="text-base text-[#5f5a72]">{detail}</small>
+                <b className="block text-lg text-(--ink)">{title}</b>
+                <span className="text-base text-(--muted)">{detail}</span>
               </span>
             </li>
           ))}
         </ul>
       </section>
-      <section>
-        <h3 className="mb-4 text-2xl font-bold">Inside the app</h3>
-        <TemplateCarousel names={showcaseTemplates} />
+      <section className="mt-6">
+        <h3 className={h3}>Inside the app</h3>
+        <div className="marquee -mx-6 overflow-hidden">
+          <div className="marquee-track flex w-max gap-2 pl-6">
+            {[false, true].map((copy) =>
+              showcaseTemplates.map((name) => (
+                <div
+                  key={`${name}-${copy}`}
+                  aria-hidden={copy || undefined}
+                  className="size-32 shrink-0 overflow-hidden rounded-xl border border-(--line) bg-white"
+                >
+                  <TemplateArt name={name} className="size-full rounded-none bg-transparent!" />
+                </div>
+              )),
+            )}
+          </div>
+        </div>
       </section>
-      <section>
-        <h3 className="mb-4 text-2xl font-bold">What happens next</h3>
-        <ol className="list-decimal space-y-2 pl-6">
+      <section className="mt-6">
+        <h3 className={h3}>What happens next</h3>
+        <ol className="flex list-decimal flex-col gap-2 pl-[22px] text-lg">
           <li>Download AR Sketch & Trace</li>
           <li>Sign in with your email</li>
           <li>Open Day 1 and grab a pencil</li>
         </ol>
       </section>
-      <section>
-        <h3 className="mb-2 text-2xl font-bold">Questions</h3>
+      <section className="faq mt-6">
+        <h3 className={h3}>Questions</h3>
         {faq.map(([question, answer]) => (
-          <details key={question} className="border-b border-[#d3ccdf] py-3">
-            <summary className="cursor-pointer font-bold text-[#231f33]">{question}</summary>
-            <p className="mt-2 text-base text-[#5f5a72]">{answer}</p>
+          <details key={question} className="border-t border-(--hair) py-3.5 last:border-b">
+            <summary className="flex cursor-pointer justify-between gap-3 text-lg font-bold text-(--ink)">
+              {question}
+            </summary>
+            <p className="mt-2 text-base text-(--muted)">{answer}</p>
           </details>
         ))}
       </section>
-      <button
-        type="button"
-        onClick={() => {
-          trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK)
-          onChoose()
-        }}
-        className="primary-button w-full"
-      >
-        Choose my plan
-      </button>
-    </div>
+      <p className="mt-6 text-center text-sm leading-normal text-(--muted)">
+        Renews automatically until you cancel. Cancel anytime before the renewal date.
+      </p>
+    </>
   )
 }

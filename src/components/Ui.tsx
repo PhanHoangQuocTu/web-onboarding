@@ -18,18 +18,20 @@ export function Button({
   onClick,
   className = '',
   disabled = false,
+  secondary = false,
 }: {
   children: ReactNode
   onClick?: () => void
   className?: string
   disabled?: boolean
+  secondary?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`primary-button w-full disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`primary-button w-full disabled:cursor-not-allowed disabled:opacity-50 ${secondary ? 'secondary' : ''} ${className}`}
     >
       {children}
     </button>
@@ -40,15 +42,17 @@ export function StickyAction({
   onClick,
   note,
   disabled = false,
+  secondary = false,
 }: {
   children: ReactNode
   onClick: () => void
   note?: string
   disabled?: boolean
+  secondary?: boolean
 }) {
   const { step } = useFlow()
   const footer = (
-    <div className="glass-footer fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[440px] px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-5">
+    <div className="glass-footer fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[440px] px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4">
       <Button
         onClick={() => {
           trackEvent(GA_EVENT.CTA_CLICK, {
@@ -59,10 +63,11 @@ export function StickyAction({
           onClick()
         }}
         disabled={disabled}
+        secondary={secondary}
       >
         {children}
       </Button>
-      {note && <p className="mt-2 text-center text-sm text-[#5f5a72]">{note}</p>}
+      {note && <p className="mt-2 text-center text-sm text-(--muted)">{note}</p>}
     </div>
   )
 
@@ -70,7 +75,7 @@ export function StickyAction({
     <>
       <div
         aria-hidden="true"
-        className={`mt-auto shrink-0 ${note ? 'h-[calc(129px+env(safe-area-inset-bottom))]' : 'h-[calc(100px+env(safe-area-inset-bottom))]'}`}
+        className={`mt-auto shrink-0 ${note ? 'h-[calc(125px+env(safe-area-inset-bottom))]' : 'h-[calc(96px+env(safe-area-inset-bottom))]'}`}
       />
       {typeof document !== 'undefined' && createPortal(footer, document.body)}
     </>

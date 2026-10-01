@@ -14,7 +14,7 @@ export function DrawTiles({
 }) {
   return (
     <div
-      className="mt-7 grid grid-cols-2 gap-2.5"
+      className="mt-7 grid grid-cols-2 gap-3"
       role="radiogroup"
       aria-label={title.replaceAll('|', ' ')}
     >
@@ -25,22 +25,26 @@ export function DrawTiles({
           role="radio"
           aria-checked={selected === option.value}
           onClick={() => onChoose(option.value)}
-          className="answer-card surface flex min-w-0 flex-col rounded-[28px] p-[14px] text-left"
+          className="answer-card surface flex min-w-0 flex-col gap-4 rounded-[32px] p-4 text-left"
         >
           <span
-            className="relative block aspect-square w-full overflow-hidden rounded-[16px] border border-[#e9e6ed] bg-white"
+            className="relative block aspect-square w-full overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_var(--hair)]"
             aria-hidden="true"
           >
-            <span
-              className="absolute inset-[3%] bg-[#302c3d] mask-center mask-no-repeat mask-contain"
-              style={{ maskImage: `url(/art/t/${option.icon}.png)` }}
+            <img
+              src={`/art/draw/${option.value}.webp`}
+              width={480}
+              height={480}
+              alt=""
+              decoding="async"
+              className="absolute inset-0 size-full object-cover"
             />
           </span>
-          <span className="mt-3 flex min-h-9 w-full items-end justify-between gap-1">
-            <span className="brand-font min-w-0 text-[14px] font-semibold leading-tight text-[#231f33]">
+          <span className="flex w-full items-end gap-2">
+            <span className="min-h-[2.6em] min-w-0 flex-1 text-base font-semibold leading-[1.3] text-(--ink) [overflow-wrap:anywhere]">
               {option.label}
             </span>
-            <span className="radio !size-5 shrink-0" aria-hidden="true">
+            <span className="radio shrink-0 bg-white" aria-hidden="true">
               <CheckIcon />
             </span>
           </span>

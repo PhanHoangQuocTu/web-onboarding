@@ -23,48 +23,50 @@ export function LoadingScreen() {
     }
   }, [go])
 
+  const current = Math.min(lines.length - 1, Math.floor((progress / 100) * lines.length))
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center pb-10">
-      <div className="relative size-56">
+    <div className="flex flex-col items-center pt-7">
+      <div className="relative size-50">
         <svg className="size-full -rotate-90" viewBox="0 0 200 200" aria-hidden="true">
-          <circle cx="100" cy="100" r="86" fill="none" stroke="#ddd7e8" strokeWidth="12" />
+          <circle cx="100" cy="100" r="86" fill="none" stroke="var(--track)" strokeWidth="12" />
           <circle
             cx="100"
             cy="100"
             r="86"
             fill="none"
-            stroke="#5b45c8"
+            stroke="var(--accent)"
             strokeWidth="12"
             strokeLinecap="round"
             pathLength="100"
             strokeDasharray="100"
             strokeDashoffset={100 - progress}
+            className="transition-[stroke-dashoffset] duration-100 ease-linear"
           />
         </svg>
-        <b className="brand-font absolute inset-0 flex items-center justify-center text-5xl leading-none text-[#231f33] tabular-nums">
-          {progress}
-          <span className="ml-0.5 text-2xl">%</span>
+        <b className="brand-font absolute inset-0 grid place-items-center text-[64px] font-bold tracking-[-0.035em] text-(--ink) tabular-nums">
+          {progress}%
         </b>
       </div>
-      <p className="brand-font text-center mt-8 text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
-        Building your plan
-      </p>
+      <p className="eyebrow mt-8">Building your plan</p>
 
-      <ul className="mx-auto mt-2 w-fit">
-        {lines.map((line, i) => (
-          <li
-            key={line}
-            className="flex min-h-11 items-center gap-3.5 font-semibold text-[#231f33]"
-          >
-            <span
-              className={`grid text-xs size-6 place-items-center rounded-full border-[.1875rem] ${progress >= (i + 1) * 33.33 ? 'border-[#5b45c8] bg-[#5b45c8] text-white' : progress >= i * 33.33 ? 'loading-spin border-[#ddd7e8] border-t-[#5b45c8]' : 'border-[#ddd7e8]'}`}
+      <ul className="mt-2 flex flex-col gap-1.5 self-center">
+        {lines.map((line, i) => {
+          const state = i < current || progress >= 100 ? 'ok' : i === current ? 'on' : ''
+          return (
+            <li
+              key={line}
+              className={`flex min-h-11 items-center gap-3.5 text-lg font-semibold transition-colors duration-200 ${state ? 'text-(--ink)' : 'text-(--quiet)'}`}
             >
-              {progress >= (i + 1) * 33.33 && <CheckIcon />}
-            </span>
-
-            {line}
-          </li>
-        ))}
+              <span
+                className={`grid size-6 shrink-0 place-items-center rounded-full ${state === 'ok' ? 'bg-(--accent) text-white' : state === 'on' ? 'loading-spin border-[3px] border-(--track) border-t-(--accent)' : 'border-[3px] border-(--track)'}`}
+              >
+                {state === 'ok' && <CheckIcon strokeWidth={2.4} />}
+              </span>
+              {line}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

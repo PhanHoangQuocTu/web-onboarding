@@ -20,24 +20,28 @@ export function EmailScreen() {
 
   return (
     <>
-      <h2 className="max-w-65 text-2xl leading-[1.1]">Which email will you use?</h2>
-      <p className="mt-3 text-lg text-[#5f5a72]">Use the same email at checkout.</p>
-      <label htmlFor="plan-email" className="mt-5 text-base font-bold text-[#231f33]">
-        Email address
-      </label>
-      <input
-        ref={input}
-        id="plan-email"
-        type="email"
-        autoComplete="email"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        className="mt-1 h-15 w-full rounded-xl border border-[#d3ccdf] bg-white px-3 text-base text-[#231f33] outline-none focus:border-[#5b45c8]"
-      />
-      <p className="mt-3 text-sm leading-[1.4] text-[#5f5a72]">
-        Prototype: your email stays in this page. No email is sent or account created.
-      </p>
+      <h2>Which email will you use?</h2>
+      <p className="lede">Use the same email at checkout.</p>
+      <div className="mt-6 grid gap-2">
+        <label htmlFor="plan-email" className="text-base font-semibold text-(--ink)">
+          Email address
+        </label>
+        <input
+          ref={input}
+          id="plan-email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          inputMode="email"
+          aria-describedby="email-note"
+          className="w-full rounded-2xl border border-(--line) bg-white px-4 py-3.5 text-xl text-(--ink)"
+        />
+        <p id="email-note" className="mt-1 text-sm leading-normal text-(--muted)">
+          Prototype: your email stays in this page. No email is sent or account created.
+        </p>
+      </div>
       <StickyAction onClick={continueToOffer} disabled={!canContinue}>
         Continue
       </StickyAction>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckoutSheet } from '@/components/CheckoutSheet'
 import { CheckIcon } from '@/components/CheckIcon'
@@ -85,12 +86,30 @@ export function PricingScreen() {
   const [busy, setBusy] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [wallet, setWallet] = useState<WalletMethod | null>(null)
-  const plansRef = useRef<HTMLDivElement>(null)
+  const payRef = useRef<HTMLDivElement>(null)
+  const [barGone, setBarGone] = useState(offerExpired)
+  const [pastPay, setPastPay] = useState(false)
   const planRef = useRef<Plan>(plan)
   const discountedRef = useRef(discounted)
   const completedTransaction = useRef<string | null>(null)
   const closeSheet = useCallback(() => setSheet(false), [])
   const expireOffer = useCallback(() => setOfferExpired(true), [])
+  const hideBar = useCallback(() => setBarGone(true), [])
+  const hasBar = !barGone
+  useEffect(() => {
+    if (!ready) return
+    const sync = () => {
+      const bottom = payRef.current?.getBoundingClientRect().bottom
+      setPastPay(bottom !== undefined && bottom < (hasBar ? 80 : 12))
+    }
+    sync()
+    window.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('resize', sync)
+    return () => {
+      window.removeEventListener('scroll', sync)
+      window.removeEventListener('resize', sync)
+    }
+  }, [ready, hasBar])
   useEffect(() => {
     planRef.current = plan
     discountedRef.current = discounted
@@ -173,8 +192,12 @@ export function PricingScreen() {
     [GA_PARAM.CURRENCY]: GA_CURRENCY,
     [GA_PARAM.VALUE]: amountDueToday(plan, discounted),
   }
-  const scrollToPlans = () =>
-    plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const scrollToPlans = () => {
+    trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK)
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' })
+  }
+  const showFab = pastPay && !hasBar
   const startCheckout = async (method: PaymentMethod) => {
     if (busy) return
     setCheckoutError(null)
@@ -193,25 +216,48 @@ export function PricingScreen() {
     }
   }
   return (
-    <>
-      <OfferCountdown expiresAt={offerExpiresAt} onExpire={expireOffer} />
-      {/* <p className="brand-font mb-3 text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
-        {forKids(answers) ? 'Made for your child' : 'Made for you'}
-      </p> */}
-      <div className="px-6">
-        <h2>
-          Draw <span className="text-[#4a36ae]">{subject(answers).pro}</span> in 7 days
-        </h2>
-      </div>
-      {/* <div className="mt-5 grid grid-cols-7 gap-1.5">
-        {keys.map((key, i) => (
-          <TemplateArt name={key} key={`${key}-${i}`} className="w-full" />
-        ))}
-      </div> */}
+    <div className={`flex flex-col gap-6 ${hasBar ? 'pt-20' : 'pt-4'}`}>
+      {hasBar && (
+        <OfferCountdown
+          expiresAt={offerExpiresAt}
+          onExpire={expireOffer}
+          onGone={hideBar}
+          showGo={pastPay}
+          onGo={scrollToPlans}
+        />
+      )}
+      {createPortal(
+        <button
+          type="button"
+          aria-hidden={!showFab}
+          tabIndex={showFab ? 0 : -1}
+          onClick={scrollToPlans}
+          className={`brand-font fixed left-1/2 top-[calc(16px+env(safe-area-inset-top,0px))] z-30 inline-flex h-11 items-center gap-2 rounded-full bg-(--primary) pl-3.5 pr-[18px] text-base font-semibold text-white shadow-[0_8px_20px_rgba(35,31,51,0.22)] transition-[opacity,transform] duration-200 hover:bg-(--primary-hover) ${showFab ? 'pointer-events-auto -translate-x-1/2 translate-y-0 opacity-100' : 'pointer-events-none -translate-x-1/2 -translate-y-2 opacity-0'}`}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+          Get my plan
+        </button>,
+        document.body,
+      )}
+      <h2>
+        Draw <span className="text-(--accent-text)">{subject(answers).pro}</span> in 7 days
+      </h2>
 
       <ValuePanel />
 
-      <div ref={plansRef} className="mt-6 space-y-3" role="radiogroup" aria-label="Choose a plan">
+      <div className="flex flex-col gap-4" role="radiogroup" aria-label="Choose a plan">
         {planOptions(discounted).map((item) => (
           <button
             key={item.id}
@@ -227,84 +273,97 @@ export function PricingScreen() {
                 })
               setPlan(item.id)
             }}
-            className="answer-card surface relative flex w-full items-center gap-3.5 rounded-[28px] px-5 py-4 text-left"
+            className="plan-card surface relative flex w-full items-center gap-4 rounded-[28px] p-4 text-left"
           >
             <span className="radio" aria-hidden="true">
               <CheckIcon />
             </span>
-            <span className="min-w-0 flex-1">
-              <b className="brand-font block text-xl text-[#231f33]">{item.title}</b>
-
-              <small className="block text-base text-[#5f5a72]">{item.description}</small>
+            <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+              <b className="brand-font text-xl font-bold text-(--ink)">{item.title}</b>
+              <small className="text-base text-(--muted)">{item.description}</small>
             </span>
-
-            <span className="brand-font text-right text-2xl font-bold text-[#231f33] tabular-nums">
+            <span className="brand-font flex flex-col items-end text-2xl leading-[1.1] font-bold tracking-[-0.035em] text-(--ink) tabular-nums">
               {item.cost}
-              <small className="block text-sm font-semibold text-[#5f5a72]">{item.period}</small>
+              <small className="text-sm font-semibold tracking-normal text-(--muted)">
+                {item.period}
+              </small>
             </span>
-
             {item.id === 'yearly' && (
-              <em className="brand-font absolute -top-2.5 right-5 rounded-full bg-[#2e2750] px-2.5 py-0.5 text-sm font-semibold not-italic text-white">
+              <em className="brand-font absolute -top-3 right-4 rounded-full bg-(--primary) px-2.5 py-[3px] text-sm font-semibold not-italic text-white">
                 {discounted ? '50% off' : `Save ${YEARLY_SAVING_PCT}%`}
               </em>
             )}
           </button>
         ))}
       </div>
-      <PaymentActions
-        busy={busy}
-        wallet={wallet}
-        onWalletClick={(method) => {
-          trackEvent(walletClickEvents[method], payParams)
-          void startCheckout(method)
-        }}
-        onPayPalClick={() => {
-          trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)
-          void startCheckout('paypal')
-        }}
-        onCardClick={() => {
-          setCheckoutError(null)
-          setSheet(true)
-        }}
-      />
-      {checkoutError && (
-        <p role="alert" className="mt-3 text-center text-sm text-red-700">
-          {checkoutError}
+      <div ref={payRef} className="flex flex-col gap-4">
+        <PaymentActions
+          busy={busy}
+          wallet={wallet}
+          onWalletClick={(method) => {
+            trackEvent(walletClickEvents[method], payParams)
+            void startCheckout(method)
+          }}
+          onPayPalClick={() => {
+            trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)
+            void startCheckout('paypal')
+          }}
+          onCardClick={() => {
+            setCheckoutError(null)
+            setSheet(true)
+          }}
+        />
+        {checkoutError && (
+          <p role="alert" className="text-center text-sm text-red-700">
+            {checkoutError}
+          </p>
+        )}
+        <p className="text-center text-sm leading-[1.45] text-(--muted)">
+          Due today {amount.today}. {plan === 'yearly' && discounted && '50% off the first year · '}
+          {amount.next}.
         </p>
-      )}
-      <div className="mt-3 ">
-        <p className="text-center text-sm text-[#5f5a72]">
-          Due today {amount.today}. {plan === 'yearly' && discounted && '50% off the first year.'}
-        </p>
-        <p className="text-center text-sm text-[#5f5a72]">{amount.next}.</p>
       </div>
-      <p className="mt-4 flex items-center justify-center gap-2 text-center text-base font-semibold text-[#231f33]">
-        <span className="grid size-5.5 place-items-center rounded-full bg-[#5b45c8] text-white">
+      <p className="flex items-center justify-center gap-2 text-center text-base font-semibold text-(--ink)">
+        <span className="grid size-5.5 place-items-center rounded-full bg-(--accent) text-white">
           <CheckIcon />
         </span>
         Cancel anytime
       </p>
-      <div className="mt-6 grid grid-cols-3 gap-2">
+      <div className="mt-6 grid grid-cols-2 gap-2">
         {[
-          ['100K+', 'downloads'],
           ['1,000+', 'templates'],
-          ['4.6', 'Google Play'],
+          ['100K+', 'downloads'],
+          ['4.6', 'on Google Play'],
         ].map(([value, label]) => (
           <div
             key={label}
-            className="flex min-w-0 flex-col items-center rounded-3xl bg-[#ece8f2] px-1 py-4 min-[380px]:px-2"
+            className="flex flex-col items-center gap-1 rounded-3xl bg-(--surface-2) px-2 py-[18px] last:odd:col-span-2"
           >
-            <b className="brand-font text-xl text-[#231f33] min-[380px]:text-2xl">{value}</b>
-            <small className="text-center text-xs text-[#5f5a72] min-[380px]:text-sm">
-              {label}
-            </small>
+            <b className="brand-font inline-flex items-center gap-1 text-2xl leading-none font-bold tracking-[-0.035em] text-(--ink)">
+              {value}
+              {value === '4.6' && (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  className="text-[#F2B134]"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"
+                  />
+                </svg>
+              )}
+            </b>
+            <span className="text-sm leading-none text-(--muted)">{label}</span>
           </div>
         ))}
       </div>
-      <PricingDetails onChoose={scrollToPlans} />
+      <PricingDetails />
       {sheet && (
         <CheckoutSheet onClose={closeSheet} error={checkoutError} discounted={discounted} />
       )}
-    </>
+    </div>
   )
 }

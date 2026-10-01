@@ -80,16 +80,16 @@ export function PaymentActions({
   busy?: boolean
 }) {
   const button =
-    'brand-font flex h-15 w-full items-center justify-center gap-3 rounded-full text-xl font-semibold'
+    'brand-font flex h-14 w-full shrink-0 items-center justify-center gap-2.5 rounded-full text-xl font-semibold transition-[transform,background] duration-150 active:scale-[0.98]'
 
   return (
-    <div className="mt-5 space-y-3">
+    <div className="flex flex-col gap-4">
       {wallet === 'google_pay' && (
         <button
           type="button"
           disabled={busy}
           onClick={() => onWalletClick(wallet)}
-          className={`${button} border border-[#e7e3eb] bg-white text-[#231f33] disabled:cursor-wait`}
+          className={`${button} bg-white text-(--primary) shadow-[0_0_0_1px_var(--hair)] disabled:cursor-wait`}
         >
           <GoogleIcon />
           Pay with Google Pay
@@ -110,7 +110,7 @@ export function PaymentActions({
         type="button"
         disabled={busy}
         onClick={onPayPalClick}
-        className={`${button} bg-[#ffca3a] text-[#003087] disabled:cursor-wait`}
+        className={`${button} bg-[#FFC439] text-[#003087] disabled:cursor-wait`}
       >
         <PayPalIcon />
         Pay with PayPal
@@ -119,7 +119,7 @@ export function PaymentActions({
         type="button"
         onClick={onCardClick}
         disabled={busy}
-        className={`primary-button ${button} disabled:cursor-wait`}
+        className={`${button} bg-(--primary) text-white hover:bg-(--primary-hover) disabled:cursor-wait`}
       >
         <CardIcon />
         Pay with card

@@ -1,224 +1,220 @@
 'use client'
 
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { templates } from '@/lib/plan'
 import { TemplateArt } from './Art'
 
-const slideGap = 16
-const stride = (element: HTMLDivElement) => {
-  const firstCard = element.firstElementChild as HTMLElement | null
-  return (firstCard?.offsetWidth || 304) + slideGap
-}
+const chevron = (d: string) => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d={d} />
+  </svg>
+)
 
-export function PlanCarousel({ plan }: { plan: string[] }) {
-  const viewport = useRef<HTMLDivElement>(null)
+export function PlanCarousel({
+  plan,
+  onAllRevealed,
+}: {
+  plan: string[]
+  onAllRevealed: () => void
+}) {
+  const rail = useRef<HTMLDivElement>(null)
+  const stopped = useRef(false)
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const drag = useRef<{ x: number; scrollLeft: number } | null>(null)
-  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const tourTimers = useRef<ReturnType<typeof setTimeout>[]>([])
-  const tourStopped = useRef(false)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [revealedThrough, setRevealedThrough] = useState(-1)
-  const planLength = plan.length
-  const planKey = plan.join('|')
+  const [revealed, setRevealed] = useState<boolean[]>(() => plan.map(() => false))
+  const [current, setCurrent] = useState(0)
+  const name = (key: string) => templates[key]?.name || 'Your drawing'
+
+  const nearest = () => {
+    const element = rail.current
+    if (!element) return { index: 0, gap: Infinity }
+    const mid = element.scrollLeft + element.clientWidth / 2
+    let index = 0
+    let gap = Infinity
+    Array.from(element.children).forEach((child, i) => {
+      const card = child as HTMLElement
+      const d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - mid)
+      if (d < gap) {
+        gap = d
+        index = i
+      }
+    })
+    return { index, gap }
+  }
+
+  const reveal = useCallback((index: number, scroll = true) => {
+    const element = rail.current
+    const card = element?.children[index] as HTMLElement | undefined
+    if (!element || !card) return
+    if (scroll) {
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      element.scrollTo({
+        left: card.offsetLeft - (element.clientWidth - card.offsetWidth) / 2,
+        behavior: reduced ? 'auto' : 'smooth',
+      })
+    }
+    setRevealed((all) => (all[index] ? all : all.map((on, i) => on || i === index)))
+  }, [])
 
   useEffect(() => {
-    tourStopped.current = false
-    let observer: IntersectionObserver | null = null
+    if (revealed.every(Boolean)) onAllRevealed()
+  }, [revealed, onAllRevealed])
+
+  const count = plan.length
+  useEffect(() => {
+    stopped.current = false
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      tourTimers.current = [setTimeout(() => setRevealedThrough(planLength - 1), 0)]
-    } else {
-      const startTour = () => {
-        if (tourStopped.current) return
-        tourTimers.current = Array.from({ length: planLength }, (_, index) => [
-          setTimeout(() => {
-            if (tourStopped.current) return
-            const element = viewport.current
-            if (element) element.scrollTo({ left: index * stride(element), behavior: 'smooth' })
-          }, index * 650),
-          setTimeout(
-            () => {
-              if (!tourStopped.current) setRevealedThrough(index)
-            },
-            index * 650 + 160,
-          ),
-        ]).flat()
-      }
-      const element = viewport.current
-      if (element && 'IntersectionObserver' in window) {
-        observer = new IntersectionObserver(
-          (entries) => {
-            if (!entries.some((entry) => entry.isIntersecting)) return
-            observer?.disconnect()
-            startTour()
-          },
-          { threshold: 0.25 },
-        )
-        observer.observe(element)
-      } else {
-        startTour()
-      }
+      const timer = setTimeout(() => setRevealed(Array.from({ length: count }, () => true)), 0)
+      return () => clearTimeout(timer)
     }
+    const timers = Array.from({ length: count }, (_, index) =>
+      setTimeout(
+        () => {
+          if (!stopped.current) reveal(index)
+        },
+        550 + index * 650,
+      ),
+    )
     return () => {
-      tourStopped.current = true
-      observer?.disconnect()
-      tourTimers.current.forEach(clearTimeout)
-      tourTimers.current = []
-      if (snapTimer.current) clearTimeout(snapTimer.current)
+      timers.forEach(clearTimeout)
+      clearTimeout(settle.current)
     }
-  }, [planKey, planLength])
+  }, [count, reveal])
 
-  const stopTour = () => {
-    if (tourStopped.current) return
-    tourStopped.current = true
-    tourTimers.current.forEach(clearTimeout)
-    tourTimers.current = []
-    setRevealedThrough(planLength - 1)
+  const stop = () => {
+    stopped.current = true
   }
 
-  const moveTo = (index: number) => {
-    const element = viewport.current
-    if (!element) return
-    element.scrollTo({
-      left: Math.max(0, Math.min(plan.length - 1, index)) * stride(element),
-      behavior: 'smooth',
-    })
-  }
-
-  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
     drag.current = null
     const element = event.currentTarget
-    moveTo(Math.round(element.scrollLeft / stride(element)))
-    snapTimer.current = setTimeout(() => {
-      element.style.scrollSnapType = ''
-      snapTimer.current = null
-    }, 400)
+    element.style.scrollSnapType = ''
     if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
   }
 
-  const arrowClass =
-    'absolute top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full border border-[#e5e0ed] bg-white/90 text-[#8b829e] shadow-sm transition-colors hover:text-[#4a36ae]'
+  const navClass =
+    'reveal-nav absolute top-1/2 z-[2] -mt-[18px] grid size-9 place-items-center rounded-full bg-white/72 p-0 text-(--primary) shadow-[0_0_0_1px_var(--hair)]'
 
   return (
-    <div className="relative -mx-6 mt-7 overflow-hidden">
+    <div className="relative -mx-4 mt-5">
       <div
-        ref={viewport}
-        role="region"
-        aria-roledescription="carousel"
-        aria-label="Your seven-day drawing plan"
+        ref={rail}
         tabIndex={0}
-        className="plan-carousel flex cursor-grab snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain select-none active:cursor-grabbing"
-        onScroll={(event) => {
-          setActiveIndex(Math.round(event.currentTarget.scrollLeft / stride(event.currentTarget)))
+        aria-label="Your seven day drawing plan"
+        className="plan-rail flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain"
+        onScroll={() => {
+          setCurrent(nearest().index)
+          if (!stopped.current) return
+          clearTimeout(settle.current)
+          settle.current = setTimeout(() => {
+            const { index, gap } = nearest()
+            if (gap < 24) reveal(index, false)
+          }, 140)
         }}
-        onKeyDown={(event) => {
-          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-          event.preventDefault()
-          stopTour()
-          moveTo(
-            Math.round(event.currentTarget.scrollLeft / stride(event.currentTarget)) +
-              (event.key === 'ArrowRight' ? 1 : -1),
-          )
-        }}
-        onWheel={stopTour}
+        onWheel={stop}
+        onKeyDown={stop}
+        onTouchStart={stop}
         onPointerDown={(event) => {
-          stopTour()
+          stop()
           if (event.pointerType !== 'mouse' || event.button !== 0) return
-          event.preventDefault()
-          if (snapTimer.current) clearTimeout(snapTimer.current)
           event.currentTarget.style.scrollSnapType = 'none'
           drag.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft }
-          event.currentTarget.setPointerCapture(event.pointerId)
         }}
         onPointerMove={(event) => {
           if (!drag.current) return
-          event.currentTarget.scrollLeft =
-            drag.current.scrollLeft - (event.clientX - drag.current.x)
+          const dx = event.clientX - drag.current.x
+          if (Math.abs(dx) > 4 && !event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.setPointerCapture(event.pointerId)
+          event.currentTarget.scrollLeft = drag.current.scrollLeft - dx
         }}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
         {plan.map((key, index) => (
-          <article
+          <button
             key={`${key}-${index}`}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`Day ${index + 1} of ${plan.length}: ${templates[key]?.name || 'Your drawing'}`}
-            className="plan-day-card aspect-[304/396] shrink-0 snap-center"
-            style={{ width: 'var(--plan-card-width)' }}
+            type="button"
+            aria-expanded={revealed[index]}
+            aria-label={
+              revealed[index]
+                ? `Day ${index + 1}, ${name(key)}`
+                : `Reveal Day ${index + 1}, ${name(key)}`
+            }
+            onClick={() => {
+              stop()
+              reveal(index)
+            }}
+            className="reveal-day relative h-[364px] snap-center snap-always rounded-[28px] border-0 bg-transparent p-0 text-left text-(--ink)"
           >
-            <div
-              className="plan-day-card-inner relative size-full rounded-[30px] shadow-[0_12px_24px_rgba(35,31,51,0.08)]"
-              data-revealed={index <= revealedThrough}
+            <span
+              className="reveal-face reveal-back brand-font items-center justify-center bg-(--accent) text-2xl font-bold text-white"
+              aria-hidden="true"
             >
-              <div
-                className="plan-day-card-face absolute inset-0 grid place-items-center overflow-hidden rounded-[30px] bg-[#5b45c8]"
+              Day {index + 1}
+            </span>
+            <span className="reveal-face reveal-front flex-col items-stretch gap-3.5 bg-white p-3">
+              <span
+                className="grid min-h-0 flex-1 place-items-center overflow-hidden rounded-2xl bg-white"
                 aria-hidden="true"
               >
-                <span className="brand-font text-2xl font-bold text-white">Day {index + 1}</span>
-              </div>
-              <div className="plan-day-card-face plan-day-card-front absolute inset-0 flex flex-col overflow-hidden rounded-[30px] border border-[#ebe8f0] bg-white">
-                <div className="grid min-h-0 flex-1 place-items-center">
-                  {key === 'photo' ? (
-                    <img
-                      src="/art/icons/camera.webp"
-                      width={200}
-                      height={200}
-                      alt=""
-                      className="h-auto w-[72%] max-w-[200px] object-contain"
-                    />
-                  ) : (
-                    <TemplateArt name={key} className="w-[90%] max-w-[268px] bg-transparent!" />
-                  )}
-                </div>
-                <div className="px-5 pb-5">
-                  <span className="brand-font text-sm font-bold uppercase tracking-wide text-[#4a36ae]">
-                    Day {index + 1}
-                  </span>
-                  <h4 className="brand-font truncate text-2xl font-bold leading-tight text-[#231f33]">
-                    {templates[key]?.name || 'Your drawing'}
-                  </h4>
-                </div>
-              </div>
-            </div>
-          </article>
+                {key === 'photo' ? (
+                  <img
+                    src="/art/icons/camera.webp"
+                    width={200}
+                    height={200}
+                    alt=""
+                    className="h-auto w-[60%] object-contain"
+                  />
+                ) : (
+                  <TemplateArt name={key} className="size-full rounded-none bg-transparent!" />
+                )}
+              </span>
+              <span className="flex flex-col gap-1.5 px-1.5">
+                <b className="text-sm uppercase tracking-[0.05em] text-(--accent-text)">
+                  Day {index + 1}
+                </b>
+                <strong className="brand-font text-2xl leading-[1.1]">{name(key)}</strong>
+              </span>
+            </span>
+          </button>
         ))}
       </div>
-      {activeIndex > 0 && (
+      {current > 0 && (
         <button
           type="button"
           aria-label="Previous day"
           onClick={() => {
-            stopTour()
-            moveTo(activeIndex - 1)
+            stop()
+            reveal(Math.max(0, current - 1))
           }}
-          className={`${arrowClass} left-4`}
+          className={`${navClass} left-3.5`}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="m12 4-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          {chevron('M15 5 8 12l7 7')}
         </button>
       )}
-      {activeIndex < plan.length - 1 && (
-        <>
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#f4f2f7] to-transparent"
-          />
-          <button
-            type="button"
-            aria-label="Next day"
-            onClick={() => {
-              stopTour()
-              moveTo(activeIndex + 1)
-            }}
-            className={`${arrowClass} right-4`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="m8 4 6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </>
+      {current < plan.length - 1 && (
+        <button
+          type="button"
+          aria-label="Next day"
+          onClick={() => {
+            stop()
+            reveal(Math.min(plan.length - 1, current + 1))
+          }}
+          className={`${navClass} right-3.5`}
+        >
+          {chevron('m9 5 7 7-7 7')}
+        </button>
       )}
     </div>
   )

@@ -131,7 +131,7 @@ export function CheckoutSheet({
 
   const dialog = (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#231f33]/45 md:items-center"
+      className="sheet-veil fixed inset-0 z-50 flex items-end justify-center bg-[rgba(35,31,51,0.42)] md:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -140,16 +140,21 @@ export function CheckoutSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
-        className="flex h-[75dvh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[28px] bg-[#f4f2f7] shadow-2xl md:rounded-[28px]"
+        className="sheet-up flex h-[75dvh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[40px] bg-(--ground) md:rounded-[40px]"
       >
-        <div className="shrink-0 py-3" aria-hidden="true">
-          <div className="mx-auto h-1.5 w-14 rounded-full bg-[#d3ccdf]" />
+        <div className="shrink-0 pb-4 pt-3" aria-hidden="true">
+          <div className="mx-auto h-1 w-10 rounded-sm bg-(--line)" />
         </div>
         <div
-          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 pb-[calc(20px+env(safe-area-inset-bottom))] sm:px-5"
+          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-6 pb-[calc(20px+env(safe-area-inset-bottom))]"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <h3 id="checkout-title" ref={heading} tabIndex={-1} className="text-xl font-bold">
+          <h3
+            id="checkout-title"
+            ref={heading}
+            tabIndex={-1}
+            className="text-2xl font-bold tracking-[-0.02em]"
+          >
             {title}
           </h3>
 

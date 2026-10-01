@@ -1,10 +1,18 @@
 'use client'
 
-import { useLayoutEffect, useRef, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, type PointerEvent } from 'react'
 
 type Point = { x: number; y: number }
 
-export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onReveal: () => void }) {
+export function ScratchCard({
+  revealed,
+  auto,
+  onReveal,
+}: {
+  revealed: boolean
+  auto: boolean
+  onReveal: () => void
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const lastPoint = useRef<Point | null>(null)
   const moves = useRef(0)
@@ -25,22 +33,16 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
       context.fillStyle = '#5b45c8'
       context.fillRect(0, 0, width, height)
       context.fillStyle = 'rgba(255, 255, 255, 0.14)'
-      for (let row = 0; row < 7; row++) {
-        for (let col = 0; col < 11; col++) {
-          const x = ((col + 0.5 + ((row * 7 + col * 3) % 5) * 0.13) / 11) * width
-          const y = ((row + 0.5 + ((row * 3 + col * 7) % 5) * 0.12) / 7) * height
-          const radius = 1.5 + ((row * 5 + col * 3) % 4) * 0.55
-          context.beginPath()
-          context.arc(x, y, radius, 0, Math.PI * 2)
-          context.fill()
-        }
+      for (let n = 0; n < 60; n++) {
+        context.beginPath()
+        context.arc((n * 53) % width, (n * 97) % height, 1.6 + (n % 3), 0, Math.PI * 2)
+        context.fill()
       }
-      context.fillStyle = '#fff'
+      context.fillStyle = 'rgba(255, 255, 255, 0.95)'
       context.font = '700 20px "SN Pro", system-ui, sans-serif'
       context.textAlign = 'center'
-      context.textBaseline = 'middle'
-      context.fillText('Scratch to see', width / 2, height / 2 - 12)
-      context.fillText('your welcome gift', width / 2, height / 2 + 12)
+      context.fillText('Scratch to see', width / 2, height / 2 - 6)
+      context.fillText('your welcome gift', width / 2, height / 2 + 20)
     }
 
     paint()
@@ -65,12 +67,9 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
     return sampled > 0 && cleared / sampled > 0.5
   }
 
-  const scratch = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (revealed) return
-    const canvas = event.currentTarget
+  const scratchAt = (canvas: HTMLCanvasElement, point: Point, check: boolean) => {
     const context = canvas.getContext('2d')
     if (!context) return
-    const point = position(event)
     context.globalCompositeOperation = 'destination-out'
     context.lineWidth = 46
     context.lineCap = 'round'
@@ -87,14 +86,52 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
     context.globalCompositeOperation = 'source-over'
     lastPoint.current = point
     moves.current++
-    if (moves.current % 6 === 0 && clearedEnough(canvas, context)) onReveal()
+    if (check && moves.current % 6 === 0 && clearedEnough(canvas, context)) onReveal()
   }
+  const scratch = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (revealed || auto) return
+    scratchAt(event.currentTarget, position(event), true)
+  }
+  const latest = useRef({ scratchAt, onReveal })
+  useEffect(() => {
+    latest.current = { scratchAt, onReveal }
+  })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!auto || !canvas) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      latest.current.onReveal()
+      return
+    }
+    const { width, height } = canvas.getBoundingClientRect()
+    const gap = 30
+    const rows = Math.ceil(height / gap) + 1
+    const started = performance.now()
+    lastPoint.current = null
+    let frame = 0
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / 1400)
+      const at = t * rows
+      const row = Math.min(rows - 1, Math.floor(at))
+      const f = at - row
+      latest.current.scratchAt(
+        canvas,
+        { x: (row % 2 === 0 ? f : 1 - f) * width, y: Math.min(height, row * gap + 12) },
+        false,
+      )
+      if (t < 1) frame = requestAnimationFrame(step)
+      else latest.current.onReveal()
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [auto])
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className={`absolute inset-0 size-full touch-none transition-opacity duration-300 ${revealed ? 'pointer-events-none opacity-0' : 'cursor-crosshair'}`}
+      className={`absolute inset-0 size-full touch-none transition-opacity duration-400 ${revealed ? 'pointer-events-none opacity-0' : 'cursor-grab'}`}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId)
         lastPoint.current = null
@@ -106,7 +143,7 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
       onPointerUp={(event) => {
         const canvas = event.currentTarget
         const context = canvas.getContext('2d')
-        if (context && clearedEnough(canvas, context)) onReveal()
+        if (!auto && context && clearedEnough(canvas, context)) onReveal()
         lastPoint.current = null
       }}
       onPointerCancel={() => {

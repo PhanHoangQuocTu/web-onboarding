@@ -15,7 +15,7 @@ const labelParts = (label: string) => {
   return match ? (
     <>
       {match[1]}
-      <small className="block text-base font-normal text-[#5f5a72]">{match[2]}</small>
+      <small className="mt-0.5 block text-base font-normal text-(--muted)">{match[2]}</small>
     </>
   ) : (
     label
@@ -70,7 +70,7 @@ export function QuestionScreen({ question }: { question: Question }) {
         <Phrases text={title} />
       </h2>
       {question.lede && (
-        <p className="mt-3 text-lg leading-snug text-[#5f5a72]">
+        <p className="lede">
           <Phrases text={question.lede} />
         </p>
       )}
@@ -100,12 +100,12 @@ export function QuestionScreen({ question }: { question: Question }) {
                 aria-checked={question.kind === 'multi' ? undefined : active}
                 aria-pressed={question.kind === 'multi' ? active : undefined}
                 onClick={() => choose(option.value)}
-                className="answer-card surface flex min-h-26 w-full items-center gap-4 rounded-[28px] p-4 text-left"
+                className="answer-card surface flex w-full items-center gap-4 rounded-[28px] py-4 pl-4 pr-5 text-left"
               >
-                <span className="shrink-0 max-[359px]:[&>img]:size-16">
+                <span className="shrink-0 max-[360px]:[&>img]:size-10">
                   <IconArt name={option.icon} />
                 </span>
-                <span className="brand-font min-w-0 flex-1 text-xl font-semibold leading-snug text-[#231f33]">
+                <span className="min-w-0 flex-1 text-xl font-semibold leading-[1.35] text-(--ink)">
                   {labelParts(option.label)}
                 </span>
                 <span

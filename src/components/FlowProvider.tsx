@@ -17,9 +17,11 @@ type FlowState = {
   offerRevealed: boolean
   offerExpiresAt?: number
 }
+type Motion = { phase: 'out' | 'in'; back: boolean } | null
 type FlowContextValue = FlowState & {
   ready: boolean
-  go: (step: string) => void
+  motion: Motion
+  go: (step: string, back?: boolean) => void
   setAnswer: (key: string, value: AnswerValue) => void
   setPlan: (plan: Plan) => void
   setEmail: (email: string) => void
@@ -96,9 +98,25 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       /* Saving answers must never block the funnel. */
     })
   }, [ready, state.step])
-  const go = useCallback((step: string) => {
-    update((s) => ({ ...s, step }))
-    window.scrollTo(0, 0)
+  const [motion, setMotion] = useState<Motion>(null)
+  const pending = useRef<string | null>(null)
+  const motionTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const go = useCallback((step: string, back = false) => {
+    const busy = pending.current !== null
+    pending.current = step
+    if (busy) return
+    const commit = (slide: boolean) => {
+      const next = pending.current as string
+      pending.current = null
+      update((s) => ({ ...s, step: next }))
+      window.scrollTo(0, 0)
+      setMotion(slide ? { phase: 'in', back } : null)
+      if (slide) motionTimer.current = setTimeout(() => setMotion(null), 360)
+    }
+    clearTimeout(motionTimer.current)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return commit(false)
+    setMotion({ phase: 'out', back })
+    motionTimer.current = setTimeout(() => commit(true), 170)
   }, [])
   const setAnswer = (key: string, value: AnswerValue) =>
     update((s) => ({ ...s, answers: { ...s.answers, [key]: value } }))
@@ -122,6 +140,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       value={{
         ...state,
         ready,
+        motion,
         go,
         setAnswer,
         setPlan,
