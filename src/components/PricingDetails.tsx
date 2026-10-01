@@ -33,7 +33,7 @@ const values = (answers: ReturnType<typeof useFlow>['answers']) => {
 export function ValuePanel() {
   const { answers } = useFlow()
   return (
-    <div className="mt-6 rounded-4xl p-6">
+    <div className="mt-6 px-6 ">
       <h3 className="text-lg font-bold">Why you’ll love it</h3>
       <ul className="mt-3 space-y-2.5">
         {values(answers).map((value) => (

@@ -4,11 +4,36 @@ import { useCallback, useRef, useState } from 'react'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckoutSheet } from '@/components/CheckoutSheet'
 import { CheckIcon } from '@/components/CheckIcon'
+import { PaymentActions } from '@/components/PaymentActions'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
 import { trackEvent } from '@/lib/gtag'
 import { subject } from '@/lib/plan'
-import { money, price, WEEK, YEAR, YEAR_10_OFF } from '@/lib/pricing'
+import { amountDueToday, money, price, TRIAL, WEEK, YEAR_50_OFF } from '@/lib/pricing'
 import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
+
+const plans = [
+  {
+    id: 'trial',
+    title: '3-Day Trial',
+    description: `Then ${money(WEEK)} a week`,
+    cost: money(TRIAL),
+    period: 'for 3 days',
+  },
+  {
+    id: 'weekly',
+    title: 'Weekly',
+    description: 'Billed every week',
+    cost: money(WEEK),
+    period: '/week',
+  },
+  {
+    id: 'yearly',
+    title: 'Yearly',
+    description: `≈ ${money(YEAR_50_OFF / 52)} a week`,
+    cost: money(YEAR_50_OFF),
+    period: '/year',
+  },
+] as const
 
 export function PricingScreen() {
   const { answers, plan, setPlan, ready } = useFlow()
@@ -20,7 +45,7 @@ export function PricingScreen() {
   const payParams = {
     [GA_PARAM.PLAN]: plan,
     [GA_PARAM.CURRENCY]: GA_CURRENCY,
-    [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
+    [GA_PARAM.VALUE]: amountDueToday(plan),
   }
   const scrollToPlans = () =>
     plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -29,9 +54,11 @@ export function PricingScreen() {
       {/* <p className="brand-font mb-3 text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
         {forKids(answers) ? 'Made for your child' : 'Made for you'}
       </p> */}
-      <h2>
-        Draw <span className="text-[#4a36ae]">{subject(answers).pro}</span> in 7 days
-      </h2>
+      <div className="px-6">
+        <h2>
+          Draw <span className="text-[#4a36ae]">{subject(answers).pro}</span> in 7 days
+        </h2>
+      </div>
       {/* <div className="mt-5 grid grid-cols-7 gap-1.5">
         {keys.map((key, i) => (
           <TemplateArt name={key} key={`${key}-${i}`} className="w-full" />
@@ -41,20 +68,20 @@ export function PricingScreen() {
       <ValuePanel />
 
       <div ref={plansRef} className="mt-6 space-y-3" role="radiogroup" aria-label="Choose a plan">
-        {(['weekly', 'yearly'] as const).map((item) => (
+        {plans.map((item) => (
           <button
-            key={item}
+            key={item.id}
             type="button"
             role="radio"
-            aria-checked={plan === item}
+            aria-checked={plan === item.id}
             onClick={() => {
-              if (plan !== item)
+              if (plan !== item.id)
                 trackEvent(GA_EVENT.SELECT_PLAN, {
-                  [GA_PARAM.PLAN]: item,
+                  [GA_PARAM.PLAN]: item.id,
                   [GA_PARAM.CURRENCY]: GA_CURRENCY,
-                  [GA_PARAM.VALUE]: item === 'yearly' ? YEAR_10_OFF : WEEK,
+                  [GA_PARAM.VALUE]: amountDueToday(item.id),
                 })
-              setPlan(item)
+              setPlan(item.id)
             }}
             className="answer-card surface relative flex w-full items-center gap-3.5 rounded-[28px] px-5 py-4 text-left"
           >
@@ -62,66 +89,34 @@ export function PricingScreen() {
               <CheckIcon />
             </span>
             <span className="min-w-0 flex-1">
-              <b className="brand-font block text-xl text-[#231f33]">
-                {item === 'yearly' ? 'Yearly' : 'Weekly'}
-              </b>
+              <b className="brand-font block text-xl text-[#231f33]">{item.title}</b>
 
-              <small className="block text-base text-[#5f5a72]">
-                {item === 'yearly' ? `≈ ${money(YEAR_10_OFF / 52)} a week` : 'Billed every week'}
-              </small>
+              <small className="block text-base text-[#5f5a72]">{item.description}</small>
             </span>
 
             <span className="brand-font text-right text-2xl font-bold text-[#231f33] tabular-nums">
-              {item === 'yearly' ? money(YEAR_10_OFF) : money(WEEK)}
-              <small className="block text-sm font-semibold text-[#5f5a72]">
-                /{item === 'yearly' ? 'year' : 'week'}
-              </small>
+              {item.cost}
+              <small className="block text-sm font-semibold text-[#5f5a72]">{item.period}</small>
             </span>
 
-            {item === 'yearly' && (
+            {item.id === 'yearly' && (
               <em className="brand-font absolute -top-2.5 right-5 rounded-full bg-[#2e2750] px-2.5 py-0.5 text-sm font-semibold not-italic text-white">
-                Save 90%
+                50% off
               </em>
             )}
           </button>
         ))}
       </div>
-      <div className="mt-5 space-y-2.5">
-        <button
-          type="button"
-          disabled
-          // TODO: button is disabled, tracking only fires once Google Pay is enabled
-          onClick={() => trackEvent(GA_EVENT.PAY_GOOGLE_PAY_CLICK, payParams)}
-          className="h-14 w-full cursor-not-allowed rounded-full bg-black font-semibold text-[#2E2750] surface"
-        >
-          Pay with Google Pay
-        </button>
-        <button
-          type="button"
-          disabled
-          // TODO: button is disabled, tracking only fires once Apple Pay is enabled
-          onClick={() => trackEvent(GA_EVENT.PAY_APPLE_PAY_CLICK, payParams)}
-          className="h-14 w-full rounded-full bg-black font-semibold text-white"
-        >
-          Pay with Apple Pay
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
-              [GA_PARAM.PLAN]: plan,
-              [GA_PARAM.CURRENCY]: GA_CURRENCY,
-              [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
-            })
-            setSheet(true)
-          }}
-          className="primary-button w-full"
-        >
-          Pay with card
-        </button>
-      </div>
+      <PaymentActions
+        onCardClick={() => {
+          trackEvent(GA_EVENT.BEGIN_CHECKOUT, payParams)
+          setSheet(true)
+        }}
+      />
       <div className="mt-3 ">
-        <p className="text-center text-sm text-[#5f5a72]">Due today {amount.today}.</p>
+        <p className="text-center text-sm text-[#5f5a72]">
+          Due today {amount.today}. {plan === 'yearly' && '50% off the first year.'}
+        </p>
         <p className="text-center text-sm text-[#5f5a72]">{amount.next}.</p>
       </div>
       <p className="mt-4 flex items-center justify-center gap-2 text-center text-base font-semibold text-[#231f33]">

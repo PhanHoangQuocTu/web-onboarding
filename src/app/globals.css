@@ -131,12 +131,28 @@ h2 {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+.plan-carousel {
+  --plan-card-width: min(304px, calc(100vw - 96px));
+  padding-inline: calc((100% - var(--plan-card-width)) / 2);
+  scroll-padding-inline: calc((100% - var(--plan-card-width)) / 2);
+  scrollbar-width: none;
+}
+.plan-carousel::-webkit-scrollbar {
+  display: none;
+}
+.plan-carousel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+#plan-email:focus-visible {
+  outline: none;
 }
 @keyframes slide-in {
   from {

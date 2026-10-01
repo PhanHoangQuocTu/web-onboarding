@@ -12,7 +12,7 @@ pnpm dev
 
 Use `pnpm lint` for Oxlint, `pnpm format` to format the project, and `pnpm format:check` to verify formatting. VS Code formats files on save with the recommended Prettier extension.
 
-Open http://localhost:3000. The entire 15-question flow, the interstitials, plan, offer, pricing, checkout preview, and completion preview run on the single `/` page. Each step is a separate component, and answers are saved in local storage.
+Open http://localhost:3000. The entire 14-question flow, the interstitials, plan, offer, pricing, checkout preview, and completion preview run on the single `/` page. Each step is a separate component, and answers are saved in local storage.
 
 ## Run with PM2
 
@@ -34,6 +34,4 @@ docker compose up --build -d
 
 Open http://localhost:5123. The build and container both read `.env.local`; no build arguments are needed. Rebuild after changing `NEXT_PUBLIC_` values because Next.js embeds them in the client bundle.
 
-The visible promo code comes from `NEXT_PUBLIC_PROMO_CODE` in `.env.local`. Copy `.env.example` when setting up another environment. Restart the Next.js server after changing it. This is a public value embedded in the client build.
-
-The original source has no payment integration. Checkout is a clearly labeled preview: it does not collect card details or claim a purchase. The promo code is displayed on the offer card, but pricing and checkout do not apply the discount yet. Connect a real payment provider and confirmed offer before enabling payment.
+The offer shows a 50% discount on the first year of the yearly plan. Pricing also offers a $0.99 three-day trial that renews at $6.99 per week. The checkout preview shows the amount due today and the renewal terms for the selected plan. The original source has no payment integration: checkout does not collect card details or claim a purchase. Connect a payment provider before enabling payment.

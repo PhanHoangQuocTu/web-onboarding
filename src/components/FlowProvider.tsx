@@ -4,12 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { trackEvent } from '@/lib/gtag'
 import type { Answers, AnswerValue } from '@/lib/quiz'
 import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import type { Plan } from '@/lib/pricing'
 
-type Receipt = { plan: 'yearly' | 'weekly'; today: string; next: string; method: string }
+type Receipt = { plan: Plan; today: string; next: string; method: string }
 type FlowState = {
   step: string
   answers: Answers
-  plan: 'yearly' | 'weekly'
+  plan: Plan
   email: string
   receipt?: Receipt
   offerRevealed: boolean
@@ -18,7 +19,7 @@ type FlowContextValue = FlowState & {
   ready: boolean
   go: (step: string) => void
   setAnswer: (key: string, value: AnswerValue) => void
-  setPlan: (plan: 'yearly' | 'weekly') => void
+  setPlan: (plan: Plan) => void
   setEmail: (email: string) => void
   revealOffer: (method?: string) => void
   setReceipt: (receipt: Receipt) => void
@@ -40,8 +41,16 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(storageKey)
       // The stored flow is available only after the client mounts.
-      // oxlint-disable-next-line react/set-state-in-effect
-      if (stored) update({ ...initial, ...JSON.parse(stored) })
+      if (stored) {
+        const saved = JSON.parse(stored) as Partial<FlowState>
+        // oxlint-disable-next-line react/set-state-in-effect
+        update({
+          ...initial,
+          ...saved,
+          email: '',
+          step: saved.step === 'commit' ? 'loading' : saved.step || 'who',
+        })
+      }
     } catch {
       /* Storage may be unavailable. The flow still works in memory. */
     }
@@ -50,7 +59,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (ready) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(state))
+        localStorage.setItem(storageKey, JSON.stringify({ ...state, email: '' }))
       } catch {
         /* Storage may be unavailable. */
       }
@@ -62,7 +71,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   }, [])
   const setAnswer = (key: string, value: AnswerValue) =>
     update((s) => ({ ...s, answers: { ...s.answers, [key]: value } }))
-  const setPlan = (plan: 'yearly' | 'weekly') => update((s) => ({ ...s, plan }))
+  const setPlan = (plan: Plan) => update((s) => ({ ...s, plan }))
   const setEmail = (email: string) => update((s) => ({ ...s, email }))
   const revealOffer = (method: string = GA_VALUE.SCRATCH) => {
     if (state.offerRevealed) return

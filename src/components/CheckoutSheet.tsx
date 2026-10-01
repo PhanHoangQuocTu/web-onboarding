@@ -5,7 +5,7 @@ import { useFlow } from './FlowProvider'
 import { TemplateArt } from './Art'
 import { makePlan, skill, subject } from '@/lib/plan'
 import { trackEvent } from '@/lib/gtag'
-import { price, WEEK, YEAR_10_OFF } from '@/lib/pricing'
+import { amountDueToday, price } from '@/lib/pricing'
 import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 export function CheckoutSheet({ onClose }: { onClose: () => void }) {
@@ -43,7 +43,7 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#d3ccdf]" />
         <h3 id="checkout-title" ref={heading} tabIndex={-1} className="text-2xl font-bold">
-          {plan === 'yearly' ? 'Yearly plan' : 'Weekly plan'}
+          {plan === 'trial' ? '3-Day Trial' : plan === 'yearly' ? 'Yearly plan' : 'Weekly plan'}
         </h3>
         <div className="surface mt-4 flex items-center gap-3 rounded-3xl p-3">
           <div className="flex">
@@ -95,7 +95,7 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
             trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
               [GA_PARAM.PLAN]: plan,
               [GA_PARAM.CURRENCY]: GA_CURRENCY,
-              [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
+              [GA_PARAM.VALUE]: amountDueToday(plan),
             })
           }
           className="primary-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"

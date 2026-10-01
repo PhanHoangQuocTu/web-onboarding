@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, type PointerEvent } from 'react'
+import { useLayoutEffect, useRef, type PointerEvent } from 'react'
 
 type Point = { x: number; y: number }
 
@@ -9,7 +9,7 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
   const lastPoint = useRef<Point | null>(null)
   const moves = useRef(0)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (revealed) return
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
@@ -24,11 +24,23 @@ export function ScratchCard({ revealed, onReveal }: { revealed: boolean; onRevea
       context.setTransform(scale, 0, 0, scale, 0, 0)
       context.fillStyle = '#5b45c8'
       context.fillRect(0, 0, width, height)
+      context.fillStyle = 'rgba(255, 255, 255, 0.14)'
+      for (let row = 0; row < 7; row++) {
+        for (let col = 0; col < 11; col++) {
+          const x = ((col + 0.5 + ((row * 7 + col * 3) % 5) * 0.13) / 11) * width
+          const y = ((row + 0.5 + ((row * 3 + col * 7) % 5) * 0.12) / 7) * height
+          const radius = 1.5 + ((row * 5 + col * 3) % 4) * 0.55
+          context.beginPath()
+          context.arc(x, y, radius, 0, Math.PI * 2)
+          context.fill()
+        }
+      }
       context.fillStyle = '#fff'
       context.font = '700 20px "SN Pro", system-ui, sans-serif'
       context.textAlign = 'center'
       context.textBaseline = 'middle'
-      context.fillText('Scratch it off', width / 2, height / 2)
+      context.fillText('Scratch to see', width / 2, height / 2 - 12)
+      context.fillText('your welcome gift', width / 2, height / 2 + 12)
     }
 
     paint()

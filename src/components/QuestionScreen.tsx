@@ -73,23 +73,6 @@ export function QuestionScreen({ question }: { question: Question }) {
           <Phrases text={question.lede} />
         </p>
       )}
-      {question.extra === 'streak' && (
-        <div className="surface mt-7 rounded-[32px] p-4">
-          <div className="flex justify-between gap-0.5 min-[380px]:gap-1">
-            {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-              <span
-                key={day}
-                className="brand-font grid size-8 shrink-0 place-items-center rounded-full bg-[#5b45c8] text-base font-bold text-white min-[380px]:size-9"
-              >
-                {day}
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-center text-base text-[#5f5a72]">
-            One drawing a day, 7 days in a row.
-          </p>
-        </div>
-      )}
       <div
         className={`flex flex-col gap-3 ${question.kind === 'tiles' ? 'mt-7' : 'mt-6'}`}
         role={question.kind === 'multi' ? 'group' : 'radiogroup'}
