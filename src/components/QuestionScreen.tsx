@@ -5,7 +5,9 @@ import { useFlow } from './FlowProvider'
 import { IconArt, TemplateArt } from './Art'
 import { CheckIcon } from './CheckIcon'
 import { Phrases, StickyAction } from './Ui'
+import { trackEvent } from '@/lib/gtag'
 import { nextStep, titleFor, type Question } from '@/lib/quiz'
+import { GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const labelParts = (label: string) => {
   const match = label.match(/^(.*?)\s*\(([^)]+)\)$/)
@@ -38,6 +40,11 @@ export function QuestionScreen({ question }: { question: Question }) {
     if (question.kind === 'multi') {
       const on = !selectedValues.includes(value)
       const solo = value === question.none
+      trackEvent(GA_EVENT.ANSWER_SELECT, {
+        [GA_PARAM.QUESTION_ID]: question.id,
+        [GA_PARAM.ANSWER_VALUE]: value,
+        [GA_PARAM.SELECTED]: on,
+      })
       setAnswer(
         question.id,
         selectedValues
@@ -47,6 +54,11 @@ export function QuestionScreen({ question }: { question: Question }) {
       return
     }
     if (selected) return
+    trackEvent(GA_EVENT.ANSWER_SELECT, {
+      [GA_PARAM.QUESTION_ID]: question.id,
+      [GA_PARAM.ANSWER_VALUE]: value,
+      [GA_PARAM.SELECTED]: true,
+    })
     setSelected(value)
     setAnswer(question.id, value)
     timer.current = setTimeout(() => go(nextStep(question.id)), 400)

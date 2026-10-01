@@ -4,12 +4,12 @@ import { useFlow } from '@/components/FlowProvider'
 import { ScratchCard } from '@/components/ScratchCard'
 import { Phrases, StickyAction } from '@/components/Ui'
 import { subject } from '@/lib/plan'
+import { GA_VALUE, PROMO_CODE } from '@/utils/const'
 import { CheckIcon } from './CheckIcon'
 
 export function OfferScreen() {
   const { answers, offerRevealed, revealOffer, go, ready } = useFlow()
   if (!ready) return null
-  const promoCode = process.env.NEXT_PUBLIC_PROMO_CODE?.trim()
   return (
     <div className="flex flex-1 flex-col items-center text-center">
       <h2 className="self-stretch text-center">
@@ -37,21 +37,21 @@ export function OfferScreen() {
             </strong>
           </p>
         </div>
-        {promoCode && (
+        {PROMO_CODE && (
           <div className="flex items-center justify-between border-t-2 border-dashed border-[#d3ccdf] bg-[#ece8f2] px-7 py-4 text-sm text-[#5f5a72]">
             <span>Promo code</span>
             <div className="flex items-center gap-2">
               <CheckIcon color="#4a36ae" />
-              <b className="brand-font text-base text-[#231f33]">{promoCode}</b>
+              <b className="brand-font text-base text-[#231f33]">{PROMO_CODE}</b>
             </div>
           </div>
         )}
-        <ScratchCard revealed={offerRevealed} onReveal={revealOffer} />
+        <ScratchCard revealed={offerRevealed} onReveal={() => revealOffer()} />
       </div>
       {!offerRevealed && (
         <button
           type="button"
-          onClick={revealOffer}
+          onClick={() => revealOffer(GA_VALUE.BUTTON)}
           className="mt-4 min-h-11 px-3 text-base font-semibold text-[#4a36ae] underline underline-offset-4"
         >
           Reveal without scratching

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { FlowProvider } from '@/components/FlowProvider'
 import { FlowShell } from '@/components/FlowShell'
+import { GoogleAnalytics } from '@/components/GoogleAnalytics'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
+        <GoogleAnalytics />
         <FlowProvider>
           <FlowShell>{children}</FlowShell>
         </FlowProvider>

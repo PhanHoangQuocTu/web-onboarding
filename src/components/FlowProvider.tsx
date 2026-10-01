@@ -1,7 +1,9 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { trackEvent } from '@/lib/gtag'
 import type { Answers, AnswerValue } from '@/lib/quiz'
+import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 type Receipt = { plan: 'yearly' | 'weekly'; today: string; next: string; method: string }
 type FlowState = {
@@ -18,7 +20,7 @@ type FlowContextValue = FlowState & {
   setAnswer: (key: string, value: AnswerValue) => void
   setPlan: (plan: 'yearly' | 'weekly') => void
   setEmail: (email: string) => void
-  revealOffer: () => void
+  revealOffer: (method?: string) => void
   setReceipt: (receipt: Receipt) => void
 }
 const initial: FlowState = {
@@ -62,7 +64,11 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     update((s) => ({ ...s, answers: { ...s.answers, [key]: value } }))
   const setPlan = (plan: 'yearly' | 'weekly') => update((s) => ({ ...s, plan }))
   const setEmail = (email: string) => update((s) => ({ ...s, email }))
-  const revealOffer = () => update((s) => ({ ...s, offerRevealed: true }))
+  const revealOffer = (method: string = GA_VALUE.SCRATCH) => {
+    if (state.offerRevealed) return
+    trackEvent(GA_EVENT.OFFER_REVEAL, { [GA_PARAM.METHOD]: method })
+    update((s) => ({ ...s, offerRevealed: true }))
+  }
   const setReceipt = (receipt: Receipt) => update((s) => ({ ...s, receipt }))
   return (
     <FlowContext.Provider
