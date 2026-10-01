@@ -5,11 +5,14 @@ import { createPortal } from 'react-dom'
 import { TemplateArt } from '@/components/Art'
 import { useFlow } from '@/components/FlowProvider'
 import { trackEvent } from '@/lib/gtag'
+import { isValidEmail } from '@/lib/email'
 import {
   CARD_CHECKOUT_TARGET,
   closePaddleCheckout,
+  detectCountry,
   isPaddleSandbox,
   openPaddleCheckout,
+  POSTAL_CODE_COUNTRIES,
   subscribePaddleEvents,
 } from '@/lib/paddle'
 import { makePlan, skill, subject } from '@/lib/plan'
@@ -30,13 +33,32 @@ export function CheckoutSheet({
   error: string | null
   discounted: boolean
 }) {
-  const { answers, plan, email, sessionId } = useFlow()
+  const { answers, plan, email, setEmail, sessionId } = useFlow()
   const heading = useRef<HTMLHeadingElement>(null)
   // Later discount changes are applied via syncCheckoutOrder, not by reopening the form.
   const discountedAtOpen = useRef(discounted)
+  const tracked = useRef(false)
   const [loading, setLoading] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
   const [checkoutTotal, setCheckoutTotal] = useState<string | null>(null)
+  const [emailDraft, setEmailDraft] = useState(email)
+  const [zipDraft, setZipDraft] = useState('')
+  const [zip, setZip] = useState('')
+  // undefined while Paddle is still geolocating the visitor.
+  const [country, setCountry] = useState<string | null>()
+  const needsZip = !!country && POSTAL_CODE_COUNTRIES.has(country)
+  const emailInvalid = !!emailDraft.trim() && !isValidEmail(emailDraft)
+  const canOpen = country !== undefined && isValidEmail(email) && (!needsZip || !!zip)
+
+  useEffect(() => {
+    void detectCountry().then(setCountry)
+  }, [])
+
+  // Committing reopens the Paddle form, so it only happens on blur/submit, not per keystroke.
+  const commitDetails = () => {
+    if (isValidEmail(emailDraft) && emailDraft.trim() !== email) setEmail(emailDraft.trim())
+    setZip(zipDraft.trim())
+  }
 
   useEffect(() => {
     heading.current?.focus({ preventScroll: true })
@@ -53,6 +75,9 @@ export function CheckoutSheet({
   }, [onClose])
 
   useEffect(() => {
+    if (!canOpen) return
+    // oxlint-disable-next-line react/set-state-in-effect
+    setLoading(true)
     const controller = new AbortController()
     const unsubscribe = subscribePaddleEvents((event) => {
       if ((event.name === 'checkout.loaded' || event.name === 'checkout.updated') && event.data) {
@@ -68,11 +93,14 @@ export function CheckoutSheet({
       sessionId,
       method: 'card',
       displayMode: 'inline',
+      address: country ? { countryCode: country, postalCode: zip || undefined } : undefined,
       signal: controller.signal,
     })
       .then((opened) => {
         if (!opened || controller.signal.aborted) return
         setLoading(false)
+        if (tracked.current) return
+        tracked.current = true
         trackEvent(GA_EVENT.BEGIN_CHECKOUT, { [GA_PARAM.PLAN]: plan, [GA_PARAM.METHOD]: 'card' })
       })
       .catch((cause: unknown) => {
@@ -88,7 +116,7 @@ export function CheckoutSheet({
       unsubscribe()
       void closePaddleCheckout('card')
     }
-  }, [plan, email, sessionId])
+  }, [canOpen, plan, email, sessionId, country, zip])
 
   const planKeys = makePlan(answers)
     .filter((key) => key !== 'photo')
@@ -156,14 +184,67 @@ export function CheckoutSheet({
             </small>
           </div>
 
-          <h4 className="mt-4 text-sm font-bold text-[#231f33]">Email and card information</h4>
-          <div className="relative mt-2 min-h-[520px] w-full rounded-xl bg-white">
-            {loading && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              commitDetails()
+            }}
+          >
+            <label htmlFor="checkout-email" className="mt-4 block text-sm font-bold text-[#231f33]">
+              Email for your account
+            </label>
+            <input
+              id="checkout-email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              value={emailDraft}
+              onChange={(event) => setEmailDraft(event.target.value)}
+              onBlur={commitDetails}
+              aria-invalid={emailInvalid}
+              aria-describedby={emailInvalid ? 'checkout-email-error' : undefined}
+              className={`mt-2 h-13 w-full rounded-xl border bg-white px-4 text-base text-[#231f33] outline-none ${emailInvalid ? 'border-red-600' : 'border-[#d3ccdf] focus:border-[#4a36ae]'}`}
+            />
+            {emailInvalid && (
+              <p id="checkout-email-error" className="mt-1 text-sm text-red-700">
+                Enter a valid email address.
+              </p>
+            )}
+            {needsZip && (
+              <>
+                <label
+                  htmlFor="checkout-zip"
+                  className="mt-4 block text-sm font-bold text-[#231f33]"
+                >
+                  {country === 'US' ? 'ZIP code' : 'Postal code'}
+                </label>
+                <input
+                  id="checkout-zip"
+                  autoComplete="postal-code"
+                  value={zipDraft}
+                  onChange={(event) => setZipDraft(event.target.value)}
+                  onBlur={commitDetails}
+                  className="mt-2 h-13 w-full rounded-xl border border-[#d3ccdf] bg-white px-4 text-base text-[#231f33] outline-none focus:border-[#4a36ae]"
+                />
+              </>
+            )}
+            <button type="submit" hidden />
+          </form>
+
+          <h4 className="mt-4 text-sm font-bold text-[#231f33]">Card information</h4>
+          <div
+            className={`relative mt-2 w-full rounded-xl bg-white ${canOpen && !loading ? '' : 'min-h-40'}`}
+          >
+            {(!canOpen || loading) && (
               <p
                 role="status"
-                className="absolute inset-x-0 top-8 text-center text-sm text-[#5f5a72]"
+                className="absolute inset-x-0 top-8 px-4 text-center text-sm text-[#5f5a72]"
               >
-                Loading secure card form…
+                {country === undefined || (canOpen && loading)
+                  ? 'Loading secure card form…'
+                  : !isValidEmail(email)
+                    ? 'Enter your email to continue.'
+                    : `Enter your ${country === 'US' ? 'ZIP' : 'postal'} code to continue.`}
               </p>
             )}
             <div className={CARD_CHECKOUT_TARGET} />

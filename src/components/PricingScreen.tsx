@@ -9,13 +9,16 @@ import { PaymentActions } from '@/components/PaymentActions'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
 import { trackEvent, type GaEvent } from '@/lib/gtag'
 import {
+  closePaddleCheckout,
+  detectCountry,
+  deviceWallet,
   markOverlayClosed,
-  openExpressCheckout,
   openPaddleCheckout,
   planFromPriceId,
   subscribePaddleEvents,
   syncCheckoutOrder,
   type PaymentMethod,
+  type WalletMethod,
 } from '@/lib/paddle'
 import { subject } from '@/lib/plan'
 import {
@@ -55,9 +58,9 @@ const planOptions = (discounted: boolean) =>
     },
   ] as const
 
-const walletClickEvents: Record<string, GaEvent | undefined> = {
-  'apple-pay': GA_EVENT.PAY_APPLE_PAY_CLICK,
-  'google-pay': GA_EVENT.PAY_GOOGLE_PAY_CLICK,
+const walletClickEvents: Record<WalletMethod, GaEvent> = {
+  apple_pay: GA_EVENT.PAY_APPLE_PAY_CLICK,
+  google_pay: GA_EVENT.PAY_GOOGLE_PAY_CLICK,
 }
 
 export function PricingScreen() {
@@ -81,6 +84,7 @@ export function PricingScreen() {
   const [overlay, setOverlay] = useState(false)
   const [busy, setBusy] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [wallet, setWallet] = useState<WalletMethod | null>(null)
   const plansRef = useRef<HTMLDivElement>(null)
   const planRef = useRef<Plan>(plan)
   const discountedRef = useRef(discounted)
@@ -92,14 +96,14 @@ export function PricingScreen() {
     discountedRef.current = discounted
   }, [plan, discounted])
   useEffect(() => {
-    if (ready) startOfferTimer()
+    if (!ready) return
+    startOfferTimer()
+    // ApplePaySession only exists in the browser.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setWallet(deviceWallet())
+    // Warms the checkout's country prefill.
+    void detectCountry()
   }, [ready, startOfferTimer])
-  useEffect(() => {
-    if (!ready || sheet || overlay) return
-    openExpressCheckout({ plan, discounted, email, sessionId }).catch((error: unknown) => {
-      setCheckoutError(error instanceof Error ? error.message : 'Paddle checkout could not load.')
-    })
-  }, [ready, sheet, overlay, plan, discounted, email, sessionId])
   // Drops the discount from the card form or PayPal overlay when the timer runs out.
   useEffect(() => {
     if (sheet || overlay) void syncCheckoutOrder(plan, discounted).catch(() => {})
@@ -110,17 +114,12 @@ export function PricingScreen() {
         const eventPlan = planFromPriceId(event.data?.items?.[0]?.price_id) ?? planRef.current
         if (event.name === 'checkout.payment.initiated') {
           const method = event.data?.payment.method_details.type ?? 'card'
-          const params = {
+          trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
             [GA_PARAM.PLAN]: eventPlan,
             [GA_PARAM.CURRENCY]: GA_CURRENCY,
             [GA_PARAM.VALUE]: amountDueToday(eventPlan, discountedRef.current),
-          }
-          const walletEvent = walletClickEvents[method]
-          if (walletEvent) {
-            trackEvent(walletEvent, params)
-            trackEvent(GA_EVENT.BEGIN_CHECKOUT, { ...params, [GA_PARAM.METHOD]: method })
-          }
-          trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, { ...params, [GA_PARAM.METHOD]: method })
+            [GA_PARAM.METHOD]: method,
+          })
         }
         if (event.name === 'checkout.completed' && event.data) {
           const transactionId = event.data.transaction_id
@@ -146,8 +145,14 @@ export function PricingScreen() {
           setSheet(false)
           go('complete')
         }
-        // Handled in paddle.ts by hiding the wallet button.
-        if (event.code === 'no_payment_methods_available') return
+        // The wallet isn't set up on this device (e.g. in-app browsers); hide its button.
+        if (event.code === 'no_payment_methods_available') {
+          void closePaddleCheckout('overlay')
+          setOverlay(false)
+          setWallet(null)
+          setCheckoutError('This payment method is unavailable on this device. Choose another one.')
+          return
+        }
         if (event.name === 'checkout.error' || event.name === 'checkout.payment.error') {
           setCheckoutError(event.detail || 'Payment could not be completed. Please try again.')
         }
@@ -175,7 +180,9 @@ export function PricingScreen() {
     setCheckoutError(null)
     setBusy(true)
     try {
-      await openPaddleCheckout({ plan, discounted, email, sessionId, method })
+      const country = await detectCountry()
+      const address = country ? { countryCode: country } : undefined
+      await openPaddleCheckout({ plan, discounted, email, sessionId, method, address })
       trackEvent(GA_EVENT.BEGIN_CHECKOUT, { ...payParams, [GA_PARAM.METHOD]: method })
       setOverlay(true)
       setSheet(false)
@@ -246,6 +253,11 @@ export function PricingScreen() {
       </div>
       <PaymentActions
         busy={busy}
+        wallet={wallet}
+        onWalletClick={(method) => {
+          trackEvent(walletClickEvents[method], payParams)
+          void startCheckout(method)
+        }}
         onPayPalClick={() => {
           trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)
           void startCheckout('paypal')
