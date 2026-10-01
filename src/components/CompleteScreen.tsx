@@ -59,7 +59,7 @@ export function CompleteScreen() {
     }
   }
   return (
-    <div className="flex flex-col">
+    <div className="mx-auto flex w-full max-w-[342px] flex-col">
       <div className="flex flex-col items-center text-center">
         <svg width="92" height="92" viewBox="0 0 92 92" fill="none" aria-hidden="true">
           <rect x="10" y="10" width="72" height="72" rx="36" fill="#5b45c8" />
@@ -86,7 +86,7 @@ export function CompleteScreen() {
           Welcome to Premium. Use your code to unlock it in the app.
         </p>
       </div>
-      <section className="mt-7 max-w-[342px] rounded-[28px] border-2 border-[#5b45c8] bg-white p-5 mx-auto">
+      <section className="mt-7 rounded-[28px] border-2 border-[#5b45c8] bg-white p-5">
         <p className="brand-font text-sm font-semibold uppercase tracking-wider text-[#5b45c8]">
           Your activation code
         </p>
