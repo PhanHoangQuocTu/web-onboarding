@@ -14,6 +14,10 @@ export function renewalDate(plan: Plan) {
   else date.setFullYear(date.getFullYear() + 1)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+export const nextCharge = (plan: Plan) =>
+  plan === 'yearly'
+    ? `${money(YEAR)}/year on ${renewalDate(plan)}`
+    : `${money(WEEK)}/week on ${renewalDate(plan)}`
 export function price(plan: Plan) {
   if (plan === 'trial')
     return {

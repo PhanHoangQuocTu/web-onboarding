@@ -11,7 +11,6 @@ const statuses: Record<string, string> = {
   loading: 'Building your plan',
   // offer: 'Your offer',
   // pricing: 'Choose your plan',
-  complete: 'Next steps',
 }
 
 export function FlowShell({ children }: { children: React.ReactNode }) {
