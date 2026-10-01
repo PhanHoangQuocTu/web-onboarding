@@ -41,7 +41,7 @@ export function PlanScreen() {
         </div>
       </div>
       <h3 className="brand-font mt-8 text-lg font-bold text-[#231f33]">Your 7 days</h3>
-      <PlanCarousel plan={plan} />
+      <PlanCarousel key={plan.join('|')} plan={plan} />
       <StickyAction onClick={() => go('email')}>Continue</StickyAction>
     </>
   )

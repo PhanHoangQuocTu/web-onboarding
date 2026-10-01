@@ -25,7 +25,7 @@ export function LoadingScreen() {
 
   return (
     <div className="flex flex-col items-center pt-7">
-      <div className="relative size-50">
+      <div className="relative size-56">
         <svg className="size-full -rotate-90" viewBox="0 0 200 200" aria-hidden="true">
           <circle cx="100" cy="100" r="86" fill="none" stroke="#ddd7e8" strokeWidth="12" />
           <circle
@@ -49,7 +49,7 @@ export function LoadingScreen() {
         Building your plan
       </p>
 
-      <ul className="mt-2 w-full">
+      <ul className="mt-2 w-full px-16">
         {lines.map((line, i) => (
           <li
             key={line}

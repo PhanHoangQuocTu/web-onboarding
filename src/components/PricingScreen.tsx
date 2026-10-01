@@ -265,9 +265,6 @@ export function PricingScreen() {
           Due today {amount.today}. {plan === 'yearly' && discounted && '50% off the first year.'}
         </p>
         <p className="text-center text-sm text-[#5f5a72]">{amount.next}.</p>
-        <p className="mt-1 text-center text-xs text-[#5f5a72]">
-          Final total and tax are shown in Paddle checkout.
-        </p>
       </div>
       <p className="mt-4 flex items-center justify-center gap-2 text-center text-base font-semibold text-[#231f33]">
         <span className="grid size-5.5 place-items-center rounded-full bg-[#5b45c8] text-white">

@@ -144,6 +144,23 @@ h2 {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+.plan-day-card {
+  perspective: 1000px;
+}
+.plan-day-card-inner {
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.plan-day-card-inner[data-revealed='true'] {
+  transform: rotateY(180deg);
+}
+.plan-day-card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.plan-day-card-front {
+  transform: rotateY(180deg);
+}
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -167,6 +184,23 @@ summary:focus-visible {
 .screen-enter {
   animation: slide-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
+@keyframes day-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.day-reveal {
+  animation: day-reveal 0.4s ease-out both;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -180,6 +214,7 @@ summary:focus-visible {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }

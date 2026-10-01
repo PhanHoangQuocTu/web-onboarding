@@ -39,10 +39,10 @@ export const questions: Question[] = [
     kind: 'tiles',
     title: (a) => (child(a) ? 'What does your child love to draw?' : 'What do you love to draw?'),
     options: [
-      option('people', 'Portraits & people', 'halfbodygirl'),
-      option('characters', 'Anime & cartoons', 'catgirl'),
-      option('animals', 'Animals & pets', 'cat'),
-      option('nature', 'Flowers, food & cute things', 'daisy'),
+      option('people', 'Portraits & People', 'halfbodygirl'),
+      option('characters', 'Anime & Cartoons', 'catgirl'),
+      option('animals', 'Animals & Pets', 'cat'),
+      option('nature', 'Flowers & Cute Things', 'daisy'),
     ],
   },
   {

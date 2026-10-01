@@ -8,11 +8,6 @@ import { useFlow } from './FlowProvider'
 import { GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const steps = ['About you', 'Your practice', 'Your plan']
-const statuses: Record<string, string> = {
-  loading: 'Building your plan',
-  // offer: 'Your offer',
-  // pricing: 'Choose your plan',
-}
 
 export function FlowShell({ children }: { children: React.ReactNode }) {
   const { step: id, go, ready } = useFlow()
@@ -88,8 +83,6 @@ export function FlowShell({ children }: { children: React.ReactNode }) {
                   </span>
                 ))}
               </div>
-            ) : statuses[id] ? (
-              <p className="brand-font text-center text-sm text-[#5f5a72]">{statuses[id]}</p>
             ) : null}
           </header>
         )}
