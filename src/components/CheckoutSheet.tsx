@@ -4,7 +4,9 @@ import { useEffect, useRef } from 'react'
 import { useFlow } from './FlowProvider'
 import { TemplateArt } from './Art'
 import { makePlan, skill, subject } from '@/lib/plan'
-import { price } from '@/lib/pricing'
+import { trackEvent } from '@/lib/gtag'
+import { price, WEEK, YEAR_10_OFF } from '@/lib/pricing'
+import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 export function CheckoutSheet({ onClose }: { onClose: () => void }) {
   const { answers, plan, email, setEmail, go } = useFlow()
@@ -88,6 +90,14 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           disabled
+          // TODO: button is disabled, tracking only fires once payment is integrated (consider the GA4 purchase event)
+          onClick={() =>
+            trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
+              [GA_PARAM.PLAN]: plan,
+              [GA_PARAM.CURRENCY]: GA_CURRENCY,
+              [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
+            })
+          }
           className="primary-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
         >
           Pay {cost.today}
@@ -95,6 +105,7 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={() => {
+            trackEvent(GA_EVENT.PREVIEW_NEXT_STEPS_CLICK, { [GA_PARAM.PLAN]: plan })
             onClose()
             go('complete')
           }}
@@ -107,7 +118,10 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
         </p>
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            trackEvent(GA_EVENT.CHECKOUT_DISMISS, { [GA_PARAM.PLAN]: plan })
+            onClose()
+          }}
           className="mt-2 min-h-11 w-full text-base font-semibold text-[#4a36ae]"
         >
           Not now

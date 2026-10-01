@@ -5,8 +5,10 @@ import { useFlow } from '@/components/FlowProvider'
 import { CheckoutSheet } from '@/components/CheckoutSheet'
 import { CheckIcon } from '@/components/CheckIcon'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
+import { trackEvent } from '@/lib/gtag'
 import { subject } from '@/lib/plan'
 import { money, price, WEEK, YEAR, YEAR_10_OFF } from '@/lib/pricing'
+import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 export function PricingScreen() {
   const { answers, plan, setPlan, ready } = useFlow()
@@ -15,6 +17,11 @@ export function PricingScreen() {
   const closeSheet = useCallback(() => setSheet(false), [])
   if (!ready) return null
   const amount = price(plan)
+  const payParams = {
+    [GA_PARAM.PLAN]: plan,
+    [GA_PARAM.CURRENCY]: GA_CURRENCY,
+    [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
+  }
   const scrollToPlans = () =>
     plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   return (
@@ -40,7 +47,15 @@ export function PricingScreen() {
             type="button"
             role="radio"
             aria-checked={plan === item}
-            onClick={() => setPlan(item)}
+            onClick={() => {
+              if (plan !== item)
+                trackEvent(GA_EVENT.SELECT_PLAN, {
+                  [GA_PARAM.PLAN]: item,
+                  [GA_PARAM.CURRENCY]: GA_CURRENCY,
+                  [GA_PARAM.VALUE]: item === 'yearly' ? YEAR_10_OFF : WEEK,
+                })
+              setPlan(item)
+            }}
             className="answer-card surface relative flex w-full items-center gap-3.5 rounded-[28px] px-5 py-4 text-left"
           >
             <span className="radio" aria-hidden="true">
@@ -75,6 +90,8 @@ export function PricingScreen() {
         <button
           type="button"
           disabled
+          // TODO: button is disabled, tracking only fires once Google Pay is enabled
+          onClick={() => trackEvent(GA_EVENT.PAY_GOOGLE_PAY_CLICK, payParams)}
           className="h-14 w-full cursor-not-allowed rounded-full bg-black font-semibold text-[#2E2750] surface"
         >
           Pay with Google Pay
@@ -82,11 +99,24 @@ export function PricingScreen() {
         <button
           type="button"
           disabled
+          // TODO: button is disabled, tracking only fires once Apple Pay is enabled
+          onClick={() => trackEvent(GA_EVENT.PAY_APPLE_PAY_CLICK, payParams)}
           className="h-14 w-full rounded-full bg-black font-semibold text-white"
         >
           Pay with Apple Pay
         </button>
-        <button type="button" onClick={() => setSheet(true)} className="primary-button w-full">
+        <button
+          type="button"
+          onClick={() => {
+            trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
+              [GA_PARAM.PLAN]: plan,
+              [GA_PARAM.CURRENCY]: GA_CURRENCY,
+              [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
+            })
+            setSheet(true)
+          }}
+          className="primary-button w-full"
+        >
           Pay with card
         </button>
       </div>

@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect } from 'react'
+import { trackEvent } from '@/lib/gtag'
 import { previousStep, questionNumber } from '@/lib/quiz'
 import { useFlow } from './FlowProvider'
+import { GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const steps = ['About you', 'Your practice', 'Your plan']
 const statuses: Record<string, string> = {
@@ -13,7 +16,10 @@ const statuses: Record<string, string> = {
 }
 
 export function FlowShell({ children }: { children: React.ReactNode }) {
-  const { step: id, go } = useFlow()
+  const { step: id, go, ready } = useFlow()
+  useEffect(() => {
+    if (ready) trackEvent(GA_EVENT.SCREEN_VIEW, { [GA_PARAM.SCREEN_NAME]: id })
+  }, [ready, id])
   const isQuiz = questionNumber(id) > 0 || id === 'break1' || id === 'break2'
   const number = id === 'break1' ? 5 : id === 'break2' ? 10 : questionNumber(id)
   const completed = id.startsWith('break') ? number : number - 1
@@ -26,7 +32,10 @@ export function FlowShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               aria-label="Back"
-              onClick={() => go(previousStep(id))}
+              onClick={() => {
+                trackEvent(GA_EVENT.BACK_CLICK, { [GA_PARAM.SCREEN_NAME]: id })
+                go(previousStep(id))
+              }}
               className="surface grid size-11 place-items-center rounded-full text-[#231f33]"
             >
               <svg

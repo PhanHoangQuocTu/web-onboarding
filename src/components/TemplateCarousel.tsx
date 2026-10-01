@@ -3,6 +3,8 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { templates } from '@/lib/plan'
 import { TemplateArt } from './Art'
+import { trackEvent } from '@/lib/gtag'
+import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 const slideWidth = 144
 const slideGap = 12
@@ -39,6 +41,9 @@ export function TemplateCarousel({ names }: { names: string[] }) {
   const moveSlide = (direction: -1 | 1) => {
     const element = viewport.current
     if (!element) return
+    trackEvent(GA_EVENT.CAROUSEL_CLICK, {
+      [GA_PARAM.DIRECTION]: direction === 1 ? GA_VALUE.NEXT : GA_VALUE.PREVIOUS,
+    })
     const current = Math.round(element.scrollLeft / (slideWidth + slideGap))
     element.scrollTo({
       left: (current + direction) * (slideWidth + slideGap),
