@@ -5,11 +5,11 @@ import { useFlow } from './FlowProvider'
 import { TemplateArt } from './Art'
 import { makePlan, skill, subject } from '@/lib/plan'
 import { trackEvent } from '@/lib/gtag'
-import { amountDueToday, price } from '@/lib/pricing'
+import { amountDueToday, nextCharge, price } from '@/lib/pricing'
 import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 export function CheckoutSheet({ onClose }: { onClose: () => void }) {
-  const { answers, plan, email, setEmail, go } = useFlow()
+  const { answers, plan, email, setEmail, go, setReceipt } = useFlow()
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     heading.current?.focus()
@@ -89,16 +89,18 @@ export function CheckoutSheet({ onClose }: { onClose: () => void }) {
         </div>
         <button
           type="button"
-          disabled
-          // TODO: button is disabled, tracking only fires once payment is integrated (consider the GA4 purchase event)
-          onClick={() =>
+          // TODO: replace with the real payment call; only move on to 'complete' after it succeeds (and fire the GA4 purchase event)
+          onClick={() => {
             trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
               [GA_PARAM.PLAN]: plan,
               [GA_PARAM.CURRENCY]: GA_CURRENCY,
               [GA_PARAM.VALUE]: amountDueToday(plan),
             })
-          }
-          className="primary-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
+            setReceipt({ plan, today: cost.today, next: nextCharge(plan), method: 'Card' })
+            onClose()
+            go('complete')
+          }}
+          className="primary-button mt-5 w-full"
         >
           Pay {cost.today}
         </button>
