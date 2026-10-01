@@ -2,9 +2,12 @@
 
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { trackEvent } from '@/lib/gtag'
 import { categoryLabel, goalLabel, templates } from '@/lib/plan'
 import type { Answers } from '@/lib/quiz'
 import { TemplateArt } from './Art'
+import { useFlow } from './FlowProvider'
+import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 export function Phrases({ text }: { text: string }) {
   return (
@@ -44,9 +47,21 @@ export function StickyAction({
   onClick: () => void
   note?: string
 }) {
+  const { step } = useFlow()
   const footer = (
     <div className="glass-footer fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[440px] px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-5">
-      <Button onClick={onClick}>{children}</Button>
+      <Button
+        onClick={() => {
+          trackEvent(GA_EVENT.CTA_CLICK, {
+            [GA_PARAM.BUTTON_TEXT]:
+              typeof children === 'string' ? children : GA_VALUE.STICKY_ACTION,
+            [GA_PARAM.SCREEN_NAME]: step,
+          })
+          onClick()
+        }}
+      >
+        {children}
+      </Button>
       {note && <p className="mt-2 text-center text-sm text-[#5f5a72]">{note}</p>}
     </div>
   )

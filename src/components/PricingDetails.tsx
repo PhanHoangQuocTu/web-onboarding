@@ -1,10 +1,12 @@
 'use client'
 
+import { trackEvent } from '@/lib/gtag'
 import { useFlow } from './FlowProvider'
 import { IconArt } from './Art'
 import { CheckIcon } from './CheckIcon'
 import { TemplateCarousel } from './TemplateCarousel'
 import { duration, mode, skill, subject, usesPhotos } from '@/lib/plan'
+import { GA_EVENT } from '@/utils/const'
 
 const showcaseTemplates = [
   'catgirl',
@@ -144,7 +146,14 @@ export function PricingDetails({ onChoose }: { onChoose: () => void }) {
           </details>
         ))}
       </section>
-      <button type="button" onClick={onChoose} className="primary-button w-full">
+      <button
+        type="button"
+        onClick={() => {
+          trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK)
+          onChoose()
+        }}
+        className="primary-button w-full"
+      >
         Choose my plan
       </button>
     </div>
