@@ -35,8 +35,12 @@ export function EmailScreen() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           inputMode="email"
+          aria-describedby="email-note"
           className="w-full rounded-2xl border border-(--line) bg-white px-4 py-3.5 text-xl text-(--ink)"
         />
+        <p id="email-note" className="mt-1 text-sm leading-normal text-(--muted)">
+          We’ll use this at checkout and send your receipt here.
+        </p>
       </div>
       <StickyAction onClick={continueToOffer} disabled={!canContinue}>
         Continue
