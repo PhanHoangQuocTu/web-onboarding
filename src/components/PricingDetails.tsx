@@ -21,13 +21,12 @@ const showcaseTemplates = [
 
 const values = (answers: ReturnType<typeof useFlow>['answers']) => {
   const frustrations = Array.isArray(answers.frust) ? answers.frust : []
-  const list = [
-    'No ads. Cancel anytime.',
+  return [
     `Trace your own photos.${frustrations.includes('photofee') ? ' No extra fee.' : ''}`,
+    ...(frustrations.includes('hidden') ? ['One clear price. No hidden charges.'] : []),
     '1,000+ hand-drawn templates.',
+    'No ads. Cancel anytime.',
   ]
-  if (frustrations.includes('hidden')) list.push('One clear price. No hidden charges.')
-  return list
 }
 
 export function ValuePanel() {
