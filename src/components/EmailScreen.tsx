@@ -35,12 +35,8 @@ export function EmailScreen() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           inputMode="email"
-          aria-describedby="email-note"
           className="w-full rounded-2xl border border-(--line) bg-white px-4 py-3.5 text-xl text-(--ink)"
         />
-        <p id="email-note" className="mt-1 text-sm leading-normal text-(--muted)">
-          Prototype: your email stays in this page. No email is sent or account created.
-        </p>
       </div>
       <StickyAction onClick={continueToOffer} disabled={!canContinue}>
         Continue

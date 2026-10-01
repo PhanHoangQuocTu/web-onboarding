@@ -7,6 +7,7 @@ import { CheckoutSheet } from '@/components/CheckoutSheet'
 import { CheckIcon } from '@/components/CheckIcon'
 import { OfferCountdown } from '@/components/OfferCountdown'
 import { PaymentActions } from '@/components/PaymentActions'
+import { Laurel } from '@/components/Laurel'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
 import { trackEvent, type GaEvent } from '@/lib/gtag'
 import {
@@ -334,13 +335,16 @@ export function PricingScreen() {
           ['1,000+', 'templates'],
           ['100K+', 'downloads'],
           ['4.6', 'on Google Play'],
+          ['5,000+', 'positive reviews'],
         ].map(([value, label]) => (
           <div
             key={label}
             className="flex flex-col items-center gap-1 rounded-3xl bg-(--surface-2) px-2 py-[18px] last:odd:col-span-2"
           >
             <b className="brand-font inline-flex items-center gap-1 text-2xl leading-none font-bold tracking-[-0.035em] text-(--ink)">
+              {value === '5,000+' && <Laurel side="left" />}
               {value}
+              {value === '5,000+' && <Laurel side="right" />}
               {value === '4.6' && (
                 <svg
                   width="16"
