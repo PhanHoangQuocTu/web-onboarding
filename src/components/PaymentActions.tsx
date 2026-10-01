@@ -64,7 +64,17 @@ function CardIcon() {
   )
 }
 
-export function PaymentActions({ onCardClick }: { onCardClick: () => void }) {
+export function PaymentActions({
+  onGooglePayClick,
+  onApplePayClick,
+  onPayPalClick,
+  onCardClick,
+}: {
+  onGooglePayClick: () => void
+  onApplePayClick: () => void
+  onPayPalClick: () => void
+  onCardClick: () => void
+}) {
   const button =
     'brand-font flex h-15 w-full items-center justify-center gap-3 rounded-full text-xl font-semibold'
 
@@ -73,18 +83,25 @@ export function PaymentActions({ onCardClick }: { onCardClick: () => void }) {
       <button
         type="button"
         disabled
+        onClick={onGooglePayClick}
         className={`${button} cursor-not-allowed border border-[#e7e3eb] bg-white text-[#231f33]`}
       >
         <GoogleIcon />
         Pay with Google Pay
       </button>
-      <button type="button" disabled className={`${button} cursor-not-allowed bg-black text-white`}>
+      <button
+        type="button"
+        disabled
+        onClick={onApplePayClick}
+        className={`${button} cursor-not-allowed bg-black text-white`}
+      >
         <AppleIcon />
         Pay with Apple Pay
       </button>
       <button
         type="button"
         disabled
+        onClick={onPayPalClick}
         className={`${button} cursor-not-allowed bg-[#ffca3a] text-[#003087]`}
       >
         <PayPalIcon />

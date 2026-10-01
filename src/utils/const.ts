@@ -16,6 +16,7 @@ export const GA_EVENT = {
   CHECKOUT_DISMISS: 'checkout_dismiss',
   PAY_GOOGLE_PAY_CLICK: 'pay_google_pay_click',
   PAY_APPLE_PAY_CLICK: 'pay_apple_pay_click',
+  PAY_PAYPAL_CLICK: 'pay_paypal_click',
   PAY_SUBMIT_CLICK: 'pay_submit_click',
   CAROUSEL_CLICK: 'template_carousel_click',
 } as const

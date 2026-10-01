@@ -108,6 +108,9 @@ export function PricingScreen() {
         ))}
       </div>
       <PaymentActions
+        onGooglePayClick={() => trackEvent(GA_EVENT.PAY_GOOGLE_PAY_CLICK, payParams)}
+        onApplePayClick={() => trackEvent(GA_EVENT.PAY_APPLE_PAY_CLICK, payParams)}
+        onPayPalClick={() => trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)}
         onCardClick={() => {
           trackEvent(GA_EVENT.BEGIN_CHECKOUT, payParams)
           setSheet(true)
