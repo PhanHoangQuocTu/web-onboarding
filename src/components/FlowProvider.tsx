@@ -1,29 +1,44 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { trackEvent } from '@/lib/gtag'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import { clickParams, setGaStep, setGaUser, trackEvent } from '@/lib/gtag'
 import type { Answers, AnswerValue } from '@/lib/quiz'
-import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { GA_ELEMENT, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { OFFER_DURATION_MS, type Plan } from '@/lib/pricing'
 
-type Receipt = { plan: 'yearly' | 'weekly'; today: string; next: string; method: string }
+type Receipt = { plan: Plan; transactionId: string; method: string; paidToday: string }
 type FlowState = {
+  sessionId: string
   step: string
   answers: Answers
-  plan: 'yearly' | 'weekly'
+  plan: Plan
   email: string
   receipt?: Receipt
   offerRevealed: boolean
+  offerExpiresAt?: number
 }
+type Motion = { phase: 'out' | 'in'; back: boolean } | null
 type FlowContextValue = FlowState & {
   ready: boolean
-  go: (step: string) => void
+  motion: Motion
+  go: (step: string, back?: boolean) => void
   setAnswer: (key: string, value: AnswerValue) => void
-  setPlan: (plan: 'yearly' | 'weekly') => void
+  setPlan: (plan: Plan) => void
   setEmail: (email: string) => void
   revealOffer: (method?: string) => void
   setReceipt: (receipt: Receipt) => void
+  startOfferTimer: () => void
 }
 const initial: FlowState = {
+  sessionId: '',
   step: 'who',
   answers: { frust: [] },
   plan: 'yearly',
@@ -32,47 +47,126 @@ const initial: FlowState = {
 }
 const FlowContext = createContext<FlowContextValue | null>(null)
 const storageKey = 'ar-sketch-next-flow'
+const saveSteps = new Set(['loading', 'offer', 'pricing'])
+
+function newSessionId() {
+  if (crypto.randomUUID) return crypto.randomUUID()
+  const b = crypto.getRandomValues(new Uint8Array(16))
+  b[6] = (b[6] & 0x0f) | 0x40
+  b[8] = (b[8] & 0x3f) | 0x80
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
 
 export function FlowProvider({ children }: { children: React.ReactNode }) {
   const [state, update] = useState<FlowState>(initial)
   const [ready, setReady] = useState(false)
+  // Layout effects run before every passive effect, so child events see the right step.
+  useLayoutEffect(() => setGaStep(state.step), [state.step])
   useEffect(() => {
+    let sessionId = ''
     try {
       const stored = localStorage.getItem(storageKey)
       // The stored flow is available only after the client mounts.
-      // oxlint-disable-next-line react/set-state-in-effect
-      if (stored) update({ ...initial, ...JSON.parse(stored) })
+      if (stored) {
+        const saved = JSON.parse(stored) as Partial<FlowState>
+        sessionId = saved.sessionId || ''
+        // oxlint-disable-next-line react/set-state-in-effect
+        update({
+          ...initial,
+          ...saved,
+          email: '',
+          step: saved.step === 'commit' ? 'loading' : saved.step || 'who',
+        })
+      }
     } catch {
       /* Storage may be unavailable. The flow still works in memory. */
     }
+    sessionId ||= newSessionId()
+    // Before any event, so the GA config carries user_id.
+    setGaUser(sessionId)
+    update((s) => ({ ...s, sessionId }))
     setReady(true)
   }, [])
   useEffect(() => {
     if (ready) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(state))
+        localStorage.setItem(storageKey, JSON.stringify({ ...state, email: '' }))
       } catch {
         /* Storage may be unavailable. */
       }
     }
   }, [ready, state])
-  const go = useCallback((step: string) => {
-    update((s) => ({ ...s, step }))
-    window.scrollTo(0, 0)
+  const latest = useRef(state)
+  useEffect(() => {
+    latest.current = state
+  })
+  useEffect(() => {
+    if (!ready || !saveSteps.has(state.step)) return
+    const { sessionId, answers, email, plan, step } = latest.current
+    void fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: sessionId, answers, email, plan, step }),
+      keepalive: true,
+    }).catch(() => {
+      /* Saving answers must never block the funnel. */
+    })
+  }, [ready, state.step])
+  const [motion, setMotion] = useState<Motion>(null)
+  const pending = useRef<string | null>(null)
+  const motionTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const go = useCallback((step: string, back = false) => {
+    const busy = pending.current !== null
+    pending.current = step
+    if (busy) return
+    const commit = (slide: boolean) => {
+      const next = pending.current as string
+      pending.current = null
+      update((s) => ({ ...s, step: next }))
+      window.scrollTo(0, 0)
+      setMotion(slide ? { phase: 'in', back } : null)
+      if (slide) motionTimer.current = setTimeout(() => setMotion(null), 360)
+    }
+    clearTimeout(motionTimer.current)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return commit(false)
+    setMotion({ phase: 'out', back })
+    motionTimer.current = setTimeout(() => commit(true), 170)
   }, [])
   const setAnswer = (key: string, value: AnswerValue) =>
     update((s) => ({ ...s, answers: { ...s.answers, [key]: value } }))
-  const setPlan = (plan: 'yearly' | 'weekly') => update((s) => ({ ...s, plan }))
+  const setPlan = (plan: Plan) => update((s) => ({ ...s, plan }))
   const setEmail = (email: string) => update((s) => ({ ...s, email }))
   const revealOffer = (method: string = GA_VALUE.SCRATCH) => {
     if (state.offerRevealed) return
-    trackEvent(GA_EVENT.OFFER_REVEAL, { [GA_PARAM.METHOD]: method })
+    trackEvent(GA_EVENT.OFFER_REVEAL, {
+      ...clickParams(GA_ELEMENT.OFFER_REVEAL, method),
+      [GA_PARAM.METHOD]: method,
+    })
     update((s) => ({ ...s, offerRevealed: true }))
   }
-  const setReceipt = (receipt: Receipt) => update((s) => ({ ...s, receipt }))
+  const setReceipt = useCallback((receipt: Receipt) => update((s) => ({ ...s, receipt })), [])
+  const startOfferTimer = useCallback(
+    () =>
+      update((s) =>
+        s.offerExpiresAt ? s : { ...s, offerExpiresAt: Date.now() + OFFER_DURATION_MS },
+      ),
+    [],
+  )
   return (
     <FlowContext.Provider
-      value={{ ...state, ready, go, setAnswer, setPlan, setEmail, revealOffer, setReceipt }}
+      value={{
+        ...state,
+        ready,
+        motion,
+        go,
+        setAnswer,
+        setPlan,
+        setEmail,
+        revealOffer,
+        setReceipt,
+        startOfferTimer,
+      }}
     >
       {children}
     </FlowContext.Provider>

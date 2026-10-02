@@ -1,122 +1,110 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { useFlow } from './FlowProvider'
-import { TemplateArt } from './Art'
-import { CheckIcon } from './CheckIcon'
-import { Chips, Phrases, PlanList, StickyAction } from './Ui'
-import { makePlan, mode } from '@/lib/plan'
+import { StickyAction } from './Ui'
+import type { Answers } from '@/lib/quiz'
+
+const drawImages = ['people', 'characters', 'animals', 'nature']
+
+function firstCopy(answers: Answers) {
+  return (
+    {
+      talent: [
+        'A lot of people feel that way at first.',
+        `Follow the lines one step at a time. By the last step, you’ve drawn this yourself.`,
+      ],
+      time: [
+        'Short on time? That’s fine.',
+        `Do a few steps today and finish this drawing tomorrow.`,
+      ],
+      start: [
+        'Then let us pick for you.',
+        'Your plan shows what to draw and where to start. Just follow the first line.',
+      ],
+    }[String(answers.block)] || ['One line at a time.', 'Follow the drawing step by step.']
+  )
+}
+
+const secondCopy = (answers: Answers) =>
+  ({
+    results: [
+      'One small win a day.',
+      'Seven days, one drawing each day. Day 1 is ready when you are.',
+    ],
+    big: [
+      'Seven days to one finished piece.',
+      'Your last day is the biggest drawing in your plan.',
+    ],
+    streaks: ['A streak you can see.', 'Finish a drawing, light up the day. Day 1 starts it.'],
+  })[String(answers.motive)] || [
+    'One drawing a day.',
+    'Seven days, one drawing each day. Day 1 is ready when you are.',
+  ]
 
 export function BreakScreen({ part }: { part: 1 | 2 }) {
   const { answers, go, ready } = useFlow()
   if (!ready) return null
-  const plan = makePlan(answers)
   if (part === 1) {
-    const who =
-      { me: 'for yourself', child: 'for your child', both: 'for you and your child' }[
-        String(answers.who)
-      ] || 'for yourself'
-    const goal =
-      {
-        gift: 'to make a personal gift',
-        relax: 'to unwind after a long day',
-        kids: 'to turn screen time into creative time',
-        hobby: 'to build a daily hobby',
-      }[String(answers.goal)] || 'to build a daily hobby'
-    const love =
-      {
-        people: 'portraits and people',
-        characters: 'anime and cartoon characters',
-        animals: 'cute animals and pets',
-        nature: 'flowers, food and cute objects',
-      }[String(answers.draw)] || 'anime and cartoon characters'
-    const level =
-      { beginner: 'a beginner', amateur: 'an amateur', intermediate: 'an intermediate' }[
-        String(answers.level)
-      ] || 'a beginner'
-    const cheer = (
-      {
-        talent: ['No talent needed.', 'You trace, your hand makes the art.'],
-        time: ['Short on time?', 'One small drawing a day is enough.'],
-        start: ['No talent needed.', 'You trace, your hand makes the art.'],
-      } as Record<string, string[]>
-    )[String(answers.block)] || [
-      'You are in the right place.',
-      'Every drawing is traced step by step.',
-    ]
+    const draw = drawImages.includes(String(answers.draw)) ? String(answers.draw) : 'characters'
+    const [title, lede] = firstCopy(answers)
     return (
       <>
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="grid size-6 shrink-0 place-items-center rounded-full bg-[#5b45c8] text-base font-bold leading-none text-white"
+        <div className="rise-children">
+          <div
+            role="img"
+            aria-label="Pencil sketch example"
+            className="mb-6 aspect-square w-full overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_var(--hair)]"
           >
-            <CheckIcon />
-          </span>
-          <p className="brand-font text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
-            Part 1 of 3 done
-          </p>
-        </div>
-        <h2 className="mt-3">
-          <Phrases text="Nice to meet you." />
-        </h2>
-        <p className="brand-font mt-5 text-2xl font-semibold leading-snug text-[#231f33]">
-          Drawing <mark className="marker-highlight">{who}</mark>,{' '}
-          <mark className="marker-highlight">{goal}</mark>. Into{' '}
-          <mark className="marker-highlight">{love}</mark>, starting as{' '}
-          <mark className="marker-highlight">{level}</mark>.
-        </p>
-        <div className="mt-6 flex justify-between gap-2 rounded-[1.75rem] bg-[#f0f0f2] p-4">
-          {plan.slice(0, 3).map((key, i) => (
-            <TemplateArt
-              key={`${key}-${i}`}
-              name={key}
-              className="min-w-0 max-w-24.5 flex-1 bg-transparent!"
+            <img
+              src={`/art/draw/break1-${draw}.webp`}
+              width={720}
+              height={720}
+              alt=""
+              decoding="async"
+              className="draw-in size-full object-cover"
             />
-          ))}
-        </div>
-        <div className="mt-5 flex items-start gap-3">
-          <span
-            aria-hidden="true"
-            className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[#5b45c8] text-white"
-          >
-            <CheckIcon />
-          </span>
-          <p className="min-w-0 flex-1 text-lg leading-[1.45] text-[#5f5a72]">
-            <b className="text-[#231f33]">{cheer[0]}</b> {cheer[1]}
-          </p>
+          </div>
+          <h2>{title}</h2>
+          <p className="lede">{lede}</p>
         </div>
         <StickyAction onClick={() => go('device')}>Keep going</StickyAction>
       </>
     )
   }
-  const photos =
-    { mostly: 'Your own photos', mix: 'Photos and app templates', library: 'App templates' }[
-      String(answers.photos)
-    ] || 'App templates'
+  const [title, lede] = secondCopy(answers)
   return (
     <>
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="grid size-6 shrink-0 place-items-center rounded-full bg-[#5b45c8] text-base font-bold leading-none text-white"
+      <div className="rise-children">
+        <div
+          role="img"
+          aria-label="Seven days, one drawing each day. Day 1 is first."
+          className="mb-6 flex flex-col gap-3.5 rounded-2xl bg-white px-4 pb-[22px] pt-7 shadow-[0_0_0_1px_var(--hair)]"
         >
-          <CheckIcon />
-        </span>
-        <p className="brand-font text-sm font-semibold uppercase tracking-wider text-[#4a36ae]">
-          Part 2 of 3 done
-        </p>
+          <ol className="flex justify-between">
+            {Array.from({ length: 7 }, (_, index) => (
+              <li
+                key={index}
+                className="pop"
+                style={{ '--d': `${(0.2 + (index + 1) * 0.12).toFixed(2)}s` } as CSSProperties}
+              >
+                <span
+                  className={`brand-font grid size-[38px] place-items-center rounded-full border-2 border-(--accent) text-base font-bold ${index === 0 ? 'bg-(--accent) text-white' : 'bg-white text-(--accent-text)'}`}
+                >
+                  {index + 1}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="brand-font flex justify-between text-sm font-semibold uppercase tracking-[0.04em] text-(--muted)">
+            <span>Day 1</span>
+            <span>Day 7</span>
+          </p>
+        </div>
+        <h2>{title}</h2>
+        <p className="lede">{lede}</p>
       </div>
-      <h2 className="mt-3">
-        <Phrases text="Your plan is taking shape." />
-      </h2>
-      <p className="mt-3 text-lg text-[#5f5a72]">
-        <Phrases text="A first look. 5 more taps to finish it." />
-      </p>
-      <Chips items={[mode(answers), photos]} />
-      <PlanList plan={plan} answers={answers} preview />
-      <StickyAction onClick={() => go('time')} note="About a minute left.">
-        Finish my plan
-      </StickyAction>
+      <StickyAction onClick={() => go('time')}>Almost there</StickyAction>
     </>
   )
 }

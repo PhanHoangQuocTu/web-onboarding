@@ -1,6 +1,3 @@
-export const GA_ID = process.env.NEXT_PUBLIC_GA_ID?.trim()
-export const PROMO_CODE = process.env.NEXT_PUBLIC_PROMO_CODE?.trim()
-
 export const GA_CURRENCY = 'USD'
 
 export const GA_EVENT = {
@@ -12,11 +9,22 @@ export const GA_EVENT = {
   SELECT_PLAN: 'select_plan',
   CHOOSE_PLAN_CLICK: 'choose_plan_click',
   BEGIN_CHECKOUT: 'begin_checkout',
-  PREVIEW_NEXT_STEPS_CLICK: 'preview_next_steps_click',
   CHECKOUT_DISMISS: 'checkout_dismiss',
+  CHECKOUT_OVERLAY_CLOSED: 'checkout_overlay_closed',
+  PAY_CARD_CLICK: 'pay_card_click',
   PAY_GOOGLE_PAY_CLICK: 'pay_google_pay_click',
   PAY_APPLE_PAY_CLICK: 'pay_apple_pay_click',
+  PAY_PAYPAL_CLICK: 'pay_paypal_click',
   PAY_SUBMIT_CLICK: 'pay_submit_click',
+  PAYMENT_ERROR: 'payment_error',
+  PURCHASE: 'purchase',
+  GENERATE_LEAD: 'generate_lead',
+  OFFER_EXPIRED: 'offer_expired',
+  PLAN_DAY_VIEW: 'plan_day_view',
+  APP_STORE_CLICK: 'app_store_click',
+  ACTIVATION_CODE_COPY: 'activation_code_copy',
+  ACTIVATION_CODE_ERROR: 'activation_code_error',
+  COMPLETE_NO_RECEIPT: 'complete_no_receipt',
   CAROUSEL_CLICK: 'template_carousel_click',
 } as const
 
@@ -31,6 +39,21 @@ export const GA_PARAM = {
   VALUE: 'value',
   DIRECTION: 'direction',
   METHOD: 'method',
+  TRANSACTION_ID: 'transaction_id',
+  TAX: 'tax',
+  ITEMS: 'items',
+  DISCOUNTED: 'discounted',
+  VIA: 'via',
+  SOURCE: 'source',
+  ERROR_TYPE: 'error_type',
+  DAY_INDEX: 'day_index',
+  STORE: 'store',
+  CONTENT_TYPE: 'content_type',
+  CLICK_ID: 'click_id',
+  CLICK_DETAIL: 'click_detail',
+  FROM_PLAN: 'from_plan',
+  ELEMENT: 'element',
+  STEP_INDEX: 'step_index',
 } as const
 
 export const GA_VALUE = {
@@ -39,4 +62,33 @@ export const GA_VALUE = {
   PREVIOUS: 'previous',
   SCRATCH: 'scratch',
   BUTTON: 'button',
+  ESCAPE: 'escape',
+  BACKDROP: 'backdrop',
+  FAB: 'fab',
+  COUNTDOWN: 'countdown',
 } as const
+
+// Second segment of click_id: `<step>.<element>[.<value>]`, e.g. `goal.answer.gift`.
+export const GA_ELEMENT = {
+  ANSWER: 'answer',
+  CTA: 'cta',
+  BACK: 'back',
+  CAROUSEL: 'carousel',
+  OFFER_REVEAL: 'offer_reveal',
+  PLAN: 'plan',
+  CHOOSE_PLAN: 'choose_plan',
+  PAY: 'pay',
+  CHECKOUT: 'checkout',
+  STORE: 'store',
+  ACTIVATION_CODE: 'activation_code',
+} as const
+
+export const FIREBASE_CONFIG = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim(),
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim(),
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim(),
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
+}

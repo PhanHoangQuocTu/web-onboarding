@@ -8,7 +8,6 @@ export type Question = {
   options: Option[]
   kind?: 'tiles' | 'multi'
   none?: string
-  extra?: 'streak'
 }
 
 const option = (value: string, label: string, icon: string): Option => ({ value, label, icon })
@@ -18,7 +17,7 @@ export const questions: Question[] = [
   {
     id: 'who',
     title: 'Who’s going to draw?',
-    lede: '15 quick taps to your own 7-day plan.',
+    lede: '14 quick taps to your own 7-day plan.',
     options: [
       option('me', 'Just me', 'me'),
       option('child', 'My child', 'child'),
@@ -40,10 +39,10 @@ export const questions: Question[] = [
     kind: 'tiles',
     title: (a) => (child(a) ? 'What does your child love to draw?' : 'What do you love to draw?'),
     options: [
-      option('people', 'Portraits & people', 'halfbodygirl'),
-      option('characters', 'Anime & cartoons', 'catgirl'),
-      option('animals', 'Animals & pets', 'cat'),
-      option('nature', 'Flowers, food & cute things', 'daisy'),
+      option('people', 'Portraits & People', 'halfbodygirl'),
+      option('characters', 'Anime & Cartoons', 'catgirl'),
+      option('animals', 'Animals & Pets', 'cat'),
+      option('nature', 'Flowers & Cute Things', 'daisy'),
     ],
   },
   {
@@ -129,6 +128,15 @@ export const questions: Question[] = [
     ],
   },
   {
+    id: 'remind',
+    title: 'Want a nudge to keep going?',
+    options: [
+      option('daily', 'Every day', 'remind'),
+      option('three', '3 times a week', 'three'),
+      option('no', 'No thanks', 'noremind'),
+    ],
+  },
+  {
     id: 'frust',
     kind: 'multi',
     title: 'What bugged you in other apps?',
@@ -140,22 +148,6 @@ export const questions: Question[] = [
       option('photofee', 'Paying extra for my own photos', 'photofee'),
       option('never', 'I haven’t tried any', 'never'),
     ],
-  },
-  {
-    id: 'remind',
-    title: 'Want a nudge to keep going?',
-    options: [
-      option('daily', 'Every day', 'remind'),
-      option('three', '3 times a week', 'three'),
-      option('no', 'No thanks', 'noremind'),
-    ],
-  },
-  {
-    id: 'commit',
-    title: (a) =>
-      child(a) ? 'Ready for 7 days of drawing together?' : 'Ready for 7 days of drawing?',
-    extra: 'streak',
-    options: [option('yes', 'Let’s go!', 'yes'), option('try', 'I’ll do my best', 'try')],
   },
 ]
 
@@ -174,19 +166,22 @@ export const flow = [
   'break2',
   'time',
   'aim',
-  'frust',
   'remind',
-  'commit',
+  'frust',
   'loading',
 ] as const
+// 1-based position of a screen in the whole funnel, for GA step ordering.
+const funnel: string[] = [...flow, 'plan', 'email', 'offer', 'pricing', 'complete']
+export const stepIndex = (id: string) => funnel.indexOf(id) + 1
 export const questionNumber = (id: string) => questions.findIndex((q) => q.id === id) + 1
 export const nextStep = (id: string) => {
   const index = flow.indexOf(id as (typeof flow)[number])
   return index < 0 ? 'who' : index === flow.length - 1 ? 'plan' : flow[index + 1]
 }
 export const previousStep = (id: string) => {
-  if (id === 'plan') return 'commit'
-  if (id === 'offer') return 'plan'
+  if (id === 'plan') return 'frust'
+  if (id === 'email') return 'plan'
+  if (id === 'offer') return 'email'
   if (id === 'pricing') return 'offer'
   const index = flow.indexOf(id as (typeof flow)[number])
   for (let i = index - 1; i >= 0; i--)

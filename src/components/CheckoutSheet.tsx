@@ -1,132 +1,310 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useFlow } from './FlowProvider'
-import { TemplateArt } from './Art'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { TemplateArt } from '@/components/Art'
+import { useFlow } from '@/components/FlowProvider'
+import { clickParams, gaItems, trackEvent } from '@/lib/gtag'
+import { isValidEmail } from '@/lib/email'
+import {
+  CARD_CHECKOUT_TARGET,
+  closePaddleCheckout,
+  detectCountry,
+  isPaddleSandbox,
+  openPaddleCheckout,
+  POSTAL_CODE_COUNTRIES,
+  subscribePaddleEvents,
+} from '@/lib/paddle'
 import { makePlan, skill, subject } from '@/lib/plan'
-import { trackEvent } from '@/lib/gtag'
-import { price, WEEK, YEAR_10_OFF } from '@/lib/pricing'
-import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
+import { amountDueToday, isDiscounted, price } from '@/lib/pricing'
+import { GA_ELEMENT, GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
-export function CheckoutSheet({ onClose }: { onClose: () => void }) {
-  const { answers, plan, email, setEmail, go } = useFlow()
+// Paddle.js event totals are already in major units (e.g. 6.99).
+function formatCheckoutTotal(total: number, currency: string) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(total)
+}
+
+export function CheckoutSheet({
+  onClose,
+  error,
+  discounted,
+}: {
+  onClose: () => void
+  error: string | null
+  discounted: boolean
+}) {
+  const { answers, plan, email, setEmail, sessionId } = useFlow()
   const heading = useRef<HTMLHeadingElement>(null)
+  // Later discount changes are applied via syncCheckoutOrder, not by reopening the form.
+  const discountedAtOpen = useRef(discounted)
+  const tracked = useRef(false)
+  const [loading, setLoading] = useState(true)
+  const [localError, setLocalError] = useState<string | null>(null)
+  const [checkoutTotal, setCheckoutTotal] = useState<string | null>(null)
+  const [emailDraft, setEmailDraft] = useState(email)
+  const [zipDraft, setZipDraft] = useState('')
+  const [zip, setZip] = useState('')
+  // undefined while Paddle is still geolocating the visitor.
+  const [country, setCountry] = useState<string | null>()
+  const needsZip = !!country && POSTAL_CODE_COUNTRIES.has(country)
+  const emailInvalid = !!emailDraft.trim() && !isValidEmail(emailDraft)
+  const canOpen = country !== undefined && isValidEmail(email) && (!needsZip || !!zip)
+  const dismiss = (via: string) => {
+    trackEvent(GA_EVENT.CHECKOUT_DISMISS, {
+      ...clickParams(GA_ELEMENT.CHECKOUT, `dismiss_${via}`, plan),
+      [GA_PARAM.PLAN]: plan,
+      [GA_PARAM.VIA]: via,
+    })
+    onClose()
+  }
+  const dismissRef = useRef(dismiss)
   useEffect(() => {
-    heading.current?.focus()
+    dismissRef.current = dismiss
+  })
+
+  useEffect(() => {
+    void detectCountry().then(setCountry)
+  }, [])
+
+  // Committing reopens the Paddle form, so it only happens on blur/submit, not per keystroke.
+  const commitDetails = () => {
+    if (isValidEmail(emailDraft) && emailDraft.trim() !== email) setEmail(emailDraft.trim())
+    setZip(zipDraft.trim())
+  }
+
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true })
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') dismissRef.current(GA_VALUE.ESCAPE)
     }
     document.addEventListener('keydown', handleKey)
     return () => {
       document.removeEventListener('keydown', handleKey)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose])
+  }, [])
+
+  useEffect(() => {
+    if (!canOpen) return
+    // oxlint-disable-next-line react/set-state-in-effect
+    setLoading(true)
+    const controller = new AbortController()
+    const unsubscribe = subscribePaddleEvents((event) => {
+      if ((event.name === 'checkout.loaded' || event.name === 'checkout.updated') && event.data) {
+        setCheckoutTotal(formatCheckoutTotal(event.data.totals.total, event.data.currency_code))
+        setLoading(false)
+      }
+    })
+
+    void openPaddleCheckout({
+      plan,
+      discounted: discountedAtOpen.current,
+      email,
+      sessionId,
+      method: 'card',
+      displayMode: 'inline',
+      address: country ? { countryCode: country, postalCode: zip || undefined } : undefined,
+      signal: controller.signal,
+    })
+      .then((opened) => {
+        if (!opened || controller.signal.aborted) return
+        setLoading(false)
+        if (tracked.current) return
+        tracked.current = true
+        const value = amountDueToday(plan, discountedAtOpen.current)
+        trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
+          [GA_PARAM.PLAN]: plan,
+          [GA_PARAM.METHOD]: 'card',
+          [GA_PARAM.CURRENCY]: GA_CURRENCY,
+          [GA_PARAM.VALUE]: value,
+          [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discountedAtOpen.current),
+          [GA_PARAM.ITEMS]: gaItems(plan, value),
+        })
+      })
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) return
+        setLoading(false)
+        trackEvent(GA_EVENT.PAYMENT_ERROR, {
+          [GA_PARAM.PLAN]: plan,
+          [GA_PARAM.METHOD]: 'card',
+          [GA_PARAM.ERROR_TYPE]: 'card_form_load_failed',
+        })
+        setLocalError(
+          cause instanceof Error ? cause.message : 'Secure card checkout could not load.',
+        )
+      })
+
+    return () => {
+      controller.abort()
+      unsubscribe()
+      void closePaddleCheckout('card')
+    }
+  }, [canOpen, plan, email, sessionId, country, zip])
+
   const planKeys = makePlan(answers)
     .filter((key) => key !== 'photo')
     .slice(0, 3)
-  const cost = price(plan)
-  return (
+  const cost = price(plan, discounted)
+  const title =
+    plan === 'trial'
+      ? '3-Day Trial'
+      : plan === 'yearly'
+        ? `Yearly plan${discounted ? ' · 50% off' : ''}`
+        : 'Weekly plan'
+
+  const dialog = (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#231f33]/45"
+      className="sheet-veil fixed inset-0 z-50 flex items-end justify-center bg-[rgba(35,31,51,0.42)] md:items-center"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) dismiss(GA_VALUE.BACKDROP)
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
-        className="max-h-[92dvh] w-full max-w-[440px] overflow-y-auto overscroll-contain rounded-t-[40px] bg-[#f4f2f7] px-6 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3"
+        className="sheet-up flex h-[75dvh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[40px] bg-(--ground) md:rounded-[40px]"
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#d3ccdf]" />
-        <h3 id="checkout-title" ref={heading} tabIndex={-1} className="text-2xl font-bold">
-          {plan === 'yearly' ? 'Yearly plan' : 'Weekly plan'}
-        </h3>
-        <div className="surface mt-4 flex items-center gap-3 rounded-3xl p-3">
-          <div className="flex">
-            {planKeys.map((key, i) => (
-              <TemplateArt
-                key={`${key}-${i}`}
-                name={key}
-                className={`size-10 border-2 border-white ${i ? '-ml-2.5' : ''}`}
-              />
-            ))}
+        <div className="shrink-0 pb-4 pt-3" aria-hidden="true">
+          <div className="mx-auto h-1 w-10 rounded-sm bg-(--line)" />
+        </div>
+        <div
+          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-6 pb-[calc(20px+env(safe-area-inset-bottom))]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <h3
+            id="checkout-title"
+            ref={heading}
+            tabIndex={-1}
+            className="text-2xl font-bold tracking-[-0.02em]"
+          >
+            {title}
+          </h3>
+
+          <div className="surface mt-4 flex items-center gap-3 rounded-[20px] p-3">
+            <div className="flex shrink-0">
+              {planKeys.map((key, i) => (
+                <TemplateArt
+                  key={`${key}-${i}`}
+                  name={key}
+                  className={`size-9 border-2 border-white ${i ? '-ml-2.5' : ''}`}
+                />
+              ))}
+            </div>
+            <span className="min-w-0">
+              <b className="block text-sm leading-snug text-[#231f33]">
+                Your 7-day {subject(answers).t} plan
+              </b>
+              <small className="block text-xs text-[#5f5a72]">
+                Made for {skill(answers).t.toLowerCase()}
+              </small>
+            </span>
           </div>
-          <span>
-            <b className="block text-base text-[#231f33]">Your 7-day {subject(answers).t} plan</b>
-            <small className="text-sm text-[#5f5a72]">
-              Made for {skill(answers).t.toLowerCase()}
+
+          <div className="mt-4 rounded-[20px] bg-[#ece8f2] p-4">
+            <div className="flex items-baseline justify-between gap-2 font-semibold">
+              <span>Due today</span>
+              <b className="brand-font text-2xl text-[#231f33]">{checkoutTotal ?? cost.today}</b>
+            </div>
+            <small className="mt-1 block text-sm leading-snug text-[#5f5a72]">
+              {plan === 'yearly' && discounted && '50% off the first year · '}
+              {cost.next}
             </small>
-          </span>
-        </div>
-        <div className="mt-4 rounded-[20px] bg-[#ece8f2] p-4">
-          <div className="flex items-baseline justify-between font-semibold">
-            <span>Due today</span>
-            <b className="brand-font text-2xl text-[#231f33]">{cost.today}</b>
           </div>
-          <small className="text-sm text-[#5f5a72]">{cost.next}</small>
-        </div>
-        <label className="mt-4 block text-base font-bold text-[#231f33]" htmlFor="checkout-email">
-          Email for your account
-        </label>
-        <input
-          id="checkout-email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
-          className="mt-1.5 h-[52px] w-full rounded-2xl border border-[#d3ccdf] bg-white px-4 text-lg"
-        />
-        <div className="mt-4 rounded-2xl border border-[#d3ccdf] bg-white p-4">
-          <b className="text-base text-[#231f33]">Payment integration pending</b>
-          <p className="mt-1 text-sm text-[#5f5a72]">
-            This is a checkout preview. No payment is taken, and card details are not collected.
+
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              commitDetails()
+            }}
+          >
+            <label htmlFor="checkout-email" className="mt-4 block text-sm font-bold text-[#231f33]">
+              Email for your account
+            </label>
+            <input
+              id="checkout-email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              value={emailDraft}
+              onChange={(event) => setEmailDraft(event.target.value)}
+              onBlur={commitDetails}
+              aria-invalid={emailInvalid}
+              aria-describedby={emailInvalid ? 'checkout-email-error' : undefined}
+              className={`mt-2 h-13 w-full rounded-xl border bg-white px-4 text-base text-[#231f33] outline-none ${emailInvalid ? 'border-red-600' : 'border-[#d3ccdf] focus:border-[#4a36ae]'}`}
+            />
+            {emailInvalid && (
+              <p id="checkout-email-error" className="mt-1 text-sm text-red-700">
+                Enter a valid email address.
+              </p>
+            )}
+            {needsZip && (
+              <>
+                <label
+                  htmlFor="checkout-zip"
+                  className="mt-4 block text-sm font-bold text-[#231f33]"
+                >
+                  {country === 'US' ? 'ZIP code' : 'Postal code'}
+                </label>
+                <input
+                  id="checkout-zip"
+                  autoComplete="postal-code"
+                  value={zipDraft}
+                  onChange={(event) => setZipDraft(event.target.value)}
+                  onBlur={commitDetails}
+                  className="mt-2 h-13 w-full rounded-xl border border-[#d3ccdf] bg-white px-4 text-base text-[#231f33] outline-none focus:border-[#4a36ae]"
+                />
+              </>
+            )}
+            <button type="submit" hidden />
+          </form>
+
+          <h4 className="mt-4 text-sm font-bold text-[#231f33]">Card information</h4>
+          <div
+            className={`relative mt-2 w-full rounded-xl bg-white ${canOpen && !loading ? '' : 'min-h-40'}`}
+          >
+            {(!canOpen || loading) && (
+              <p
+                role="status"
+                className="absolute inset-x-0 top-8 px-4 text-center text-sm text-[#5f5a72]"
+              >
+                {country === undefined || (canOpen && loading)
+                  ? 'Loading secure card form…'
+                  : !isValidEmail(email)
+                    ? 'Enter your email to continue.'
+                    : `Enter your ${country === 'US' ? 'ZIP' : 'postal'} code to continue.`}
+              </p>
+            )}
+            <div className={CARD_CHECKOUT_TARGET} />
+          </div>
+          {(localError || error) && (
+            <p role="alert" className="mt-3 text-sm text-red-700">
+              {localError || error}
+            </p>
+          )}
+
+          <p className="mt-3 text-center text-xs text-[#5f5a72]">
+            <span aria-hidden="true">🔒 </span>
+            {isPaddleSandbox
+              ? 'Secure Paddle sandbox checkout. No live charge.'
+              : 'Secure checkout with Paddle.'}
           </p>
+          <p className="mt-3 text-center text-xs leading-relaxed text-[#5f5a72]">
+            Renews automatically until you cancel. Cancel anytime before the renewal date.
+          </p>
+          <button
+            type="button"
+            onClick={() => dismiss(GA_VALUE.BUTTON)}
+            className="mt-2 min-h-11 w-full text-sm font-semibold text-[#4a36ae] underline underline-offset-4"
+          >
+            Not now
+          </button>
         </div>
-        <button
-          type="button"
-          disabled
-          // TODO: button is disabled, tracking only fires once payment is integrated (consider the GA4 purchase event)
-          onClick={() =>
-            trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
-              [GA_PARAM.PLAN]: plan,
-              [GA_PARAM.CURRENCY]: GA_CURRENCY,
-              [GA_PARAM.VALUE]: plan === 'yearly' ? YEAR_10_OFF : WEEK,
-            })
-          }
-          className="primary-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Pay {cost.today}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            trackEvent(GA_EVENT.PREVIEW_NEXT_STEPS_CLICK, { [GA_PARAM.PLAN]: plan })
-            onClose()
-            go('complete')
-          }}
-          className="mt-3 min-h-11 w-full text-base font-semibold text-[#4a36ae] underline underline-offset-4"
-        >
-          Preview next steps
-        </button>
-        <p className="mt-3 text-center text-sm text-[#5f5a72]">
-          Renews automatically until you cancel. Cancel anytime before the renewal date.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            trackEvent(GA_EVENT.CHECKOUT_DISMISS, { [GA_PARAM.PLAN]: plan })
-            onClose()
-          }}
-          className="mt-2 min-h-11 w-full text-base font-semibold text-[#4a36ae]"
-        >
-          Not now
-        </button>
       </div>
     </div>
   )
+
+  return typeof document === 'undefined' ? null : createPortal(dialog, document.body)
 }
