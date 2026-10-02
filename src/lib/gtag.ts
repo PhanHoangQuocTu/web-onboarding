@@ -1,4 +1,6 @@
-import { GA_ID, type GA_EVENT, type GA_PARAM } from '@/utils/const'
+import { getAnalytics, isSupported, logEvent, setUserId, type Analytics } from 'firebase/analytics'
+import { getFirebaseApp } from '@/lib/firebase'
+import { FIREBASE_CONFIG, type GA_EVENT, type GA_PARAM } from '@/utils/const'
 import type { Plan } from '@/lib/pricing'
 import { stepIndex } from '@/lib/quiz'
 
@@ -6,30 +8,20 @@ export type GaEvent = (typeof GA_EVENT)[keyof typeof GA_EVENT]
 type GaParam = (typeof GA_PARAM)[keyof typeof GA_PARAM]
 type GaItem = { item_id: string; item_name: string; price: number; quantity: number }
 type GtagParams = Partial<Record<GaParam, string | number | boolean | GaItem[]>>
-declare global {
-  interface Window {
-    dataLayer?: unknown[]
-    gtag?: (...args: unknown[]) => void
-  }
-}
-
 const PLAN_NAME: Record<Plan, string> = { trial: '3-Day Trial', weekly: 'Weekly', yearly: 'Yearly' }
 let userId: string | undefined
 let currentStep = ''
 
-function gtag(...args: unknown[]) {
-  if (typeof window === 'undefined' || !GA_ID) return
-  if (!window.gtag) {
-    const dataLayer = (window.dataLayer = window.dataLayer || [])
-    window.gtag = function () {
-      // gtag.js ignores arrays; it only reads Arguments objects.
-      // oxlint-disable-next-line prefer-rest-params
-      dataLayer.push(arguments)
-    }
-    window.gtag('js', new Date())
-    window.gtag('config', GA_ID, userId ? { user_id: userId } : {})
-  }
-  window.gtag(...args)
+// Firebase Analytics is GA4: it loads gtag.js itself and ships events to the linked GA4 property.
+// One promise keeps init lazy (client only) and preserves call order for events fired before it resolves.
+let analytics: Promise<Analytics | null> | undefined
+
+function getAnalyticsInstance() {
+  if (typeof window === 'undefined' || !FIREBASE_CONFIG.measurementId) return null
+  analytics ??= isSupported()
+    .then((ok) => (ok ? getAnalytics(getFirebaseApp()) : null))
+    .catch(() => null)
+  return analytics
 }
 
 // Every event carries the funnel step it happened on (the app is a single page).
@@ -65,16 +57,17 @@ export function clickParams(element: string, value?: string | number, detail?: s
 }
 
 export function trackEvent(name: GaEvent, params: GtagParams = {}) {
-  gtag('event', name, {
+  const payload = {
     ...(currentStep ? { screen_name: currentStep, step_index: stepIndex(currentStep) } : {}),
     ...params,
-  })
+  }
+  void getAnalyticsInstance()?.then((a) => a && logEvent(a, name as string, payload))
 }
 
 export function setGaUser(id: string) {
   if (!id || id === userId) return
   userId = id
-  if (typeof window !== 'undefined' && window.gtag) window.gtag('set', { user_id: id })
+  void getAnalyticsInstance()?.then((a) => a && setUserId(a, id))
 }
 
 // Paddle reports 'apple-pay'; our own methods use 'apple_pay'.

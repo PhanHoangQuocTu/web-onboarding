@@ -1,4 +1,3 @@
-export const GA_ID = process.env.NEXT_PUBLIC_GA_ID?.trim()
 export const GA_CURRENCY = 'USD'
 
 export const GA_EVENT = {
@@ -91,4 +90,5 @@ export const FIREBASE_CONFIG = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
 }
