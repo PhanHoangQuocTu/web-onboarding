@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { trackEvent } from '@/lib/gtag'
+import { clickParams, trackEvent } from '@/lib/gtag'
 import { templates } from '@/lib/plan'
 import { GA_EVENT, GA_PARAM } from '@/utils/const'
 import { TemplateArt } from './Art'
@@ -70,10 +70,14 @@ export function PlanCarousel({
   }, [])
 
   // Autoplay calls reveal() directly; only user-driven views are tracked.
-  const view = (index: number, scroll = true) => {
+  const view = (index: number, via: 'swipe' | 'card' | 'prev' | 'next', scroll = true) => {
     if (index !== lastViewed.current) {
       lastViewed.current = index
-      trackEvent(GA_EVENT.PLAN_DAY_VIEW, { [GA_PARAM.DAY_INDEX]: index + 1 })
+      trackEvent(GA_EVENT.PLAN_DAY_VIEW, {
+        ...clickParams(`day_${via}`, index + 1),
+        [GA_PARAM.DAY_INDEX]: index + 1,
+        [GA_PARAM.VIA]: via,
+      })
     }
     reveal(index, scroll)
   }
@@ -131,7 +135,7 @@ export function PlanCarousel({
           clearTimeout(settle.current)
           settle.current = setTimeout(() => {
             const { index, gap } = nearest()
-            if (gap < 24) view(index, false)
+            if (gap < 24) view(index, 'swipe', false)
           }, 140)
         }}
         onWheel={stop}
@@ -165,7 +169,7 @@ export function PlanCarousel({
             }
             onClick={() => {
               stop()
-              view(index)
+              view(index, 'card')
             }}
             className="reveal-day relative h-[364px] snap-center snap-always rounded-[28px] border-0 bg-transparent p-0 text-left text-(--ink)"
           >
@@ -208,7 +212,7 @@ export function PlanCarousel({
           aria-label="Previous day"
           onClick={() => {
             stop()
-            view(Math.max(0, current - 1))
+            view(Math.max(0, current - 1), 'prev')
           }}
           className={`${navClass} left-3.5`}
         >
@@ -221,7 +225,7 @@ export function PlanCarousel({
           aria-label="Next day"
           onClick={() => {
             stop()
-            view(Math.min(plan.length - 1, current + 1))
+            view(Math.min(plan.length - 1, current + 1), 'next')
           }}
           className={`${navClass} right-3.5`}
         >

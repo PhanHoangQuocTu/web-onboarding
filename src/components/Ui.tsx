@@ -2,9 +2,9 @@
 
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { trackEvent } from '@/lib/gtag'
+import { clickParams, trackEvent } from '@/lib/gtag'
 import { useFlow } from './FlowProvider'
-import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { GA_ELEMENT, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 export function Phrases({ text }: { text: string }) {
   return (
@@ -43,10 +43,13 @@ export function StickyAction({
   note,
   disabled = false,
   secondary = false,
+  trackKey,
 }: {
   children: ReactNode
   onClick: () => void
   note?: string
+  /** Stable GA key for this button; defaults to its text. */
+  trackKey?: string
   disabled?: boolean
   secondary?: boolean
 }) {
@@ -56,6 +59,10 @@ export function StickyAction({
       <Button
         onClick={() => {
           trackEvent(GA_EVENT.CTA_CLICK, {
+            ...clickParams(
+              GA_ELEMENT.CTA,
+              trackKey ?? (typeof children === 'string' ? children : GA_VALUE.STICKY_ACTION),
+            ),
             [GA_PARAM.BUTTON_TEXT]:
               typeof children === 'string' ? children : GA_VALUE.STICKY_ACTION,
             [GA_PARAM.SCREEN_NAME]: step,

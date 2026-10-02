@@ -1,5 +1,6 @@
 import { GA_ID, type GA_EVENT, type GA_PARAM } from '@/utils/const'
 import type { Plan } from '@/lib/pricing'
+import { stepIndex } from '@/lib/quiz'
 
 export type GaEvent = (typeof GA_EVENT)[keyof typeof GA_EVENT]
 type GaParam = (typeof GA_PARAM)[keyof typeof GA_PARAM]
@@ -14,6 +15,7 @@ declare global {
 
 const PLAN_NAME: Record<Plan, string> = { trial: '3-Day Trial', weekly: 'Weekly', yearly: 'Yearly' }
 let userId: string | undefined
+let currentStep = ''
 
 function gtag(...args: unknown[]) {
   if (typeof window === 'undefined' || !GA_ID) return
@@ -30,8 +32,43 @@ function gtag(...args: unknown[]) {
   window.gtag(...args)
 }
 
+// Every event carries the funnel step it happened on (the app is a single page).
+export function setGaStep(step: string) {
+  currentStep = step
+}
+
+const slug = (part: string) =>
+  part
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+
+/** Unique key for one clickable thing: `<step>.<element>[.<value>]`. */
+export function clickId(element: string, value?: string | number) {
+  return [currentStep, element, value === undefined ? '' : slug(String(value))]
+    .filter(Boolean)
+    .join('.')
+}
+
+/**
+ * Params that identify a click; spread into the event alongside its own params.
+ * `detail` (e.g. the plan on screen) extends the key into `click_detail`, so one button
+ * can be reported alone (click_id) or per plan (click_detail).
+ */
+export function clickParams(element: string, value?: string | number, detail?: string) {
+  const id = clickId(element, value)
+  return {
+    click_id: id,
+    click_detail: detail ? `${id}.${slug(detail)}` : id,
+    element,
+  } satisfies GtagParams
+}
+
 export function trackEvent(name: GaEvent, params: GtagParams = {}) {
-  gtag('event', name, params)
+  gtag('event', name, {
+    ...(currentStep ? { screen_name: currentStep, step_index: stepIndex(currentStep) } : {}),
+    ...params,
+  })
 }
 
 export function setGaUser(id: string) {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TemplateArt } from '@/components/Art'
 import { useFlow } from '@/components/FlowProvider'
-import { gaItems, trackEvent } from '@/lib/gtag'
+import { clickParams, gaItems, trackEvent } from '@/lib/gtag'
 import { isValidEmail } from '@/lib/email'
 import {
   CARD_CHECKOUT_TARGET,
@@ -17,7 +17,7 @@ import {
 } from '@/lib/paddle'
 import { makePlan, skill, subject } from '@/lib/plan'
 import { amountDueToday, isDiscounted, price } from '@/lib/pricing'
-import { GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { GA_ELEMENT, GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 // Paddle.js event totals are already in major units (e.g. 6.99).
 function formatCheckoutTotal(total: number, currency: string) {
@@ -50,7 +50,11 @@ export function CheckoutSheet({
   const emailInvalid = !!emailDraft.trim() && !isValidEmail(emailDraft)
   const canOpen = country !== undefined && isValidEmail(email) && (!needsZip || !!zip)
   const dismiss = (via: string) => {
-    trackEvent(GA_EVENT.CHECKOUT_DISMISS, { [GA_PARAM.PLAN]: plan, [GA_PARAM.VIA]: via })
+    trackEvent(GA_EVENT.CHECKOUT_DISMISS, {
+      ...clickParams(GA_ELEMENT.CHECKOUT, `dismiss_${via}`, plan),
+      [GA_PARAM.PLAN]: plan,
+      [GA_PARAM.VIA]: via,
+    })
     onClose()
   }
   const dismissRef = useRef(dismiss)

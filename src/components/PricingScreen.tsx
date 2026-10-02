@@ -9,7 +9,14 @@ import { OfferCountdown } from '@/components/OfferCountdown'
 import { PaymentActions } from '@/components/PaymentActions'
 import { Laurel } from '@/components/Laurel'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
-import { gaItems, gaMethod, purchaseParams, trackEvent, type GaEvent } from '@/lib/gtag'
+import {
+  clickParams,
+  gaItems,
+  gaMethod,
+  purchaseParams,
+  trackEvent,
+  type GaEvent,
+} from '@/lib/gtag'
 import {
   closePaddleCheckout,
   detectCountry,
@@ -34,7 +41,7 @@ import {
   yearlyPrice,
   type Plan,
 } from '@/lib/pricing'
-import { GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { GA_ELEMENT, GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 const planOptions = (discounted: boolean) =>
   [
@@ -154,6 +161,7 @@ export function PricingScreen() {
         if (event.name === 'checkout.payment.initiated') {
           const method = event.data?.payment.method_details.type ?? 'card'
           trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
+            ...clickParams(GA_ELEMENT.CHECKOUT, `submit_${gaMethod(method)}`, eventPlan),
             [GA_PARAM.PLAN]: eventPlan,
             [GA_PARAM.CURRENCY]: GA_CURRENCY,
             [GA_PARAM.VALUE]: amountDueToday(eventPlan, discountedRef.current),
@@ -211,6 +219,7 @@ export function PricingScreen() {
           // Skips closes after a purchase or our own close above.
           if (overlayMethod.current && !completedTransaction.current)
             trackEvent(GA_EVENT.CHECKOUT_OVERLAY_CLOSED, {
+              ...clickParams(GA_ELEMENT.CHECKOUT, 'overlay_closed', eventPlan),
               [GA_PARAM.PLAN]: eventPlan,
               [GA_PARAM.METHOD]: overlayMethod.current,
             })
@@ -230,7 +239,11 @@ export function PricingScreen() {
     [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discounted),
   }
   const scrollToPlans = (source: string) => {
-    trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK, { [GA_PARAM.SOURCE]: source })
+    trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK, {
+      ...clickParams(GA_ELEMENT.CHOOSE_PLAN, source, plan),
+      [GA_PARAM.PLAN]: plan,
+      [GA_PARAM.SOURCE]: source,
+    })
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' })
   }
@@ -310,6 +323,8 @@ export function PricingScreen() {
             onClick={() => {
               if (plan !== item.id)
                 trackEvent(GA_EVENT.SELECT_PLAN, {
+                  ...clickParams(GA_ELEMENT.PLAN, item.id),
+                  [GA_PARAM.FROM_PLAN]: plan,
                   [GA_PARAM.PLAN]: item.id,
                   [GA_PARAM.CURRENCY]: GA_CURRENCY,
                   [GA_PARAM.VALUE]: amountDueToday(item.id, discounted),
@@ -345,15 +360,27 @@ export function PricingScreen() {
           busy={busy}
           wallet={wallet}
           onWalletClick={(method) => {
-            trackEvent(walletClickEvents[method], payParams)
+            trackEvent(walletClickEvents[method], {
+              ...clickParams(GA_ELEMENT.PAY, method, plan),
+              [GA_PARAM.METHOD]: method,
+              ...payParams,
+            })
             void startCheckout(method)
           }}
           onPayPalClick={() => {
-            trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, payParams)
+            trackEvent(GA_EVENT.PAY_PAYPAL_CLICK, {
+              ...clickParams(GA_ELEMENT.PAY, 'paypal', plan),
+              [GA_PARAM.METHOD]: 'paypal',
+              ...payParams,
+            })
             void startCheckout('paypal')
           }}
           onCardClick={() => {
-            trackEvent(GA_EVENT.PAY_CARD_CLICK, payParams)
+            trackEvent(GA_EVENT.PAY_CARD_CLICK, {
+              ...clickParams(GA_ELEMENT.PAY, 'card', plan),
+              [GA_PARAM.METHOD]: 'card',
+              ...payParams,
+            })
             setCheckoutError(null)
             setSheet(true)
           }}
