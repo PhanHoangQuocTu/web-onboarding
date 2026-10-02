@@ -10,13 +10,22 @@ export const GA_EVENT = {
   SELECT_PLAN: 'select_plan',
   CHOOSE_PLAN_CLICK: 'choose_plan_click',
   BEGIN_CHECKOUT: 'begin_checkout',
-  PREVIEW_NEXT_STEPS_CLICK: 'preview_next_steps_click',
   CHECKOUT_DISMISS: 'checkout_dismiss',
+  CHECKOUT_OVERLAY_CLOSED: 'checkout_overlay_closed',
+  PAY_CARD_CLICK: 'pay_card_click',
   PAY_GOOGLE_PAY_CLICK: 'pay_google_pay_click',
   PAY_APPLE_PAY_CLICK: 'pay_apple_pay_click',
   PAY_PAYPAL_CLICK: 'pay_paypal_click',
   PAY_SUBMIT_CLICK: 'pay_submit_click',
-  PADDLE_CHECKOUT_COMPLETE: 'paddle_checkout_complete',
+  PAYMENT_ERROR: 'payment_error',
+  PURCHASE: 'purchase',
+  GENERATE_LEAD: 'generate_lead',
+  OFFER_EXPIRED: 'offer_expired',
+  PLAN_DAY_VIEW: 'plan_day_view',
+  APP_STORE_CLICK: 'app_store_click',
+  ACTIVATION_CODE_COPY: 'activation_code_copy',
+  ACTIVATION_CODE_ERROR: 'activation_code_error',
+  COMPLETE_NO_RECEIPT: 'complete_no_receipt',
   CAROUSEL_CLICK: 'template_carousel_click',
 } as const
 
@@ -32,6 +41,15 @@ export const GA_PARAM = {
   DIRECTION: 'direction',
   METHOD: 'method',
   TRANSACTION_ID: 'transaction_id',
+  TAX: 'tax',
+  ITEMS: 'items',
+  DISCOUNTED: 'discounted',
+  VIA: 'via',
+  SOURCE: 'source',
+  ERROR_TYPE: 'error_type',
+  DAY_INDEX: 'day_index',
+  STORE: 'store',
+  CONTENT_TYPE: 'content_type',
 } as const
 
 export const GA_VALUE = {
@@ -40,6 +58,10 @@ export const GA_VALUE = {
   PREVIOUS: 'previous',
   SCRATCH: 'scratch',
   BUTTON: 'button',
+  ESCAPE: 'escape',
+  BACKDROP: 'backdrop',
+  FAB: 'fab',
+  COUNTDOWN: 'countdown',
 } as const
 
 export const FIREBASE_CONFIG = {

@@ -9,6 +9,8 @@ export const YEARLY_SAVING_PCT = Math.floor((1 - YEAR / (WEEK * 52)) * 100)
 export const OFFER_DURATION_MS = 10 * 60 * 1000
 export const money = (value: number) => `$${value.toFixed(2)}`
 export const yearlyPrice = (discounted: boolean) => (discounted ? YEAR_50_OFF : YEAR)
+// The 50% offer only applies to the yearly plan.
+export const isDiscounted = (plan: Plan, offerActive: boolean) => plan === 'yearly' && offerActive
 export const amountDueToday = (plan: Plan, discounted: boolean) =>
   plan === 'trial' ? TRIAL : plan === 'yearly' ? yearlyPrice(discounted) : WEEK
 export function renewalDate(plan: Plan) {

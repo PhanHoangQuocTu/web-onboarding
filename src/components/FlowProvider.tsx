@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { trackEvent } from '@/lib/gtag'
+import { setGaUser, trackEvent } from '@/lib/gtag'
 import type { Answers, AnswerValue } from '@/lib/quiz'
 import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 import { OFFER_DURATION_MS, type Plan } from '@/lib/pricing'
@@ -54,11 +54,13 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   const [state, update] = useState<FlowState>(initial)
   const [ready, setReady] = useState(false)
   useEffect(() => {
+    let sessionId = ''
     try {
       const stored = localStorage.getItem(storageKey)
       // The stored flow is available only after the client mounts.
       if (stored) {
         const saved = JSON.parse(stored) as Partial<FlowState>
+        sessionId = saved.sessionId || ''
         // oxlint-disable-next-line react/set-state-in-effect
         update({
           ...initial,
@@ -70,7 +72,10 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* Storage may be unavailable. The flow still works in memory. */
     }
-    update((s) => (s.sessionId ? s : { ...s, sessionId: newSessionId() }))
+    sessionId ||= newSessionId()
+    // Before any event, so the GA config carries user_id.
+    setGaUser(sessionId)
+    update((s) => ({ ...s, sessionId }))
     setReady(true)
   }, [])
   useEffect(() => {

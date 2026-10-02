@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { trackEvent } from '@/lib/gtag'
 import { templates } from '@/lib/plan'
+import { GA_EVENT, GA_PARAM } from '@/utils/const'
 import { TemplateArt } from './Art'
 
 const chevron = (d: string) => (
@@ -29,6 +31,7 @@ export function PlanCarousel({
 }) {
   const rail = useRef<HTMLDivElement>(null)
   const stopped = useRef(false)
+  const lastViewed = useRef(-1)
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const drag = useRef<{ x: number; scrollLeft: number } | null>(null)
   const [revealed, setRevealed] = useState<boolean[]>(() => plan.map(() => false))
@@ -65,6 +68,15 @@ export function PlanCarousel({
     }
     setRevealed((all) => (all[index] ? all : all.map((on, i) => on || i === index)))
   }, [])
+
+  // Autoplay calls reveal() directly; only user-driven views are tracked.
+  const view = (index: number, scroll = true) => {
+    if (index !== lastViewed.current) {
+      lastViewed.current = index
+      trackEvent(GA_EVENT.PLAN_DAY_VIEW, { [GA_PARAM.DAY_INDEX]: index + 1 })
+    }
+    reveal(index, scroll)
+  }
 
   useEffect(() => {
     if (revealed.every(Boolean)) onAllRevealed()
@@ -119,7 +131,7 @@ export function PlanCarousel({
           clearTimeout(settle.current)
           settle.current = setTimeout(() => {
             const { index, gap } = nearest()
-            if (gap < 24) reveal(index, false)
+            if (gap < 24) view(index, false)
           }, 140)
         }}
         onWheel={stop}
@@ -153,7 +165,7 @@ export function PlanCarousel({
             }
             onClick={() => {
               stop()
-              reveal(index)
+              view(index)
             }}
             className="reveal-day relative h-[364px] snap-center snap-always rounded-[28px] border-0 bg-transparent p-0 text-left text-(--ink)"
           >
@@ -196,7 +208,7 @@ export function PlanCarousel({
           aria-label="Previous day"
           onClick={() => {
             stop()
-            reveal(Math.max(0, current - 1))
+            view(Math.max(0, current - 1))
           }}
           className={`${navClass} left-3.5`}
         >
@@ -209,7 +221,7 @@ export function PlanCarousel({
           aria-label="Next day"
           onClick={() => {
             stop()
-            reveal(Math.min(plan.length - 1, current + 1))
+            view(Math.min(plan.length - 1, current + 1))
           }}
           className={`${navClass} right-3.5`}
         >

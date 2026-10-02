@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TemplateArt } from '@/components/Art'
 import { useFlow } from '@/components/FlowProvider'
-import { trackEvent } from '@/lib/gtag'
+import { gaItems, trackEvent } from '@/lib/gtag'
 import { isValidEmail } from '@/lib/email'
 import {
   CARD_CHECKOUT_TARGET,
@@ -16,8 +16,8 @@ import {
   subscribePaddleEvents,
 } from '@/lib/paddle'
 import { makePlan, skill, subject } from '@/lib/plan'
-import { price } from '@/lib/pricing'
-import { GA_EVENT, GA_PARAM } from '@/utils/const'
+import { amountDueToday, isDiscounted, price } from '@/lib/pricing'
+import { GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 // Paddle.js event totals are already in major units (e.g. 6.99).
 function formatCheckoutTotal(total: number, currency: string) {
@@ -49,6 +49,14 @@ export function CheckoutSheet({
   const needsZip = !!country && POSTAL_CODE_COUNTRIES.has(country)
   const emailInvalid = !!emailDraft.trim() && !isValidEmail(emailDraft)
   const canOpen = country !== undefined && isValidEmail(email) && (!needsZip || !!zip)
+  const dismiss = (via: string) => {
+    trackEvent(GA_EVENT.CHECKOUT_DISMISS, { [GA_PARAM.PLAN]: plan, [GA_PARAM.VIA]: via })
+    onClose()
+  }
+  const dismissRef = useRef(dismiss)
+  useEffect(() => {
+    dismissRef.current = dismiss
+  })
 
   useEffect(() => {
     void detectCountry().then(setCountry)
@@ -65,14 +73,14 @@ export function CheckoutSheet({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') dismissRef.current(GA_VALUE.ESCAPE)
     }
     document.addEventListener('keydown', handleKey)
     return () => {
       document.removeEventListener('keydown', handleKey)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose])
+  }, [])
 
   useEffect(() => {
     if (!canOpen) return
@@ -101,11 +109,24 @@ export function CheckoutSheet({
         setLoading(false)
         if (tracked.current) return
         tracked.current = true
-        trackEvent(GA_EVENT.BEGIN_CHECKOUT, { [GA_PARAM.PLAN]: plan, [GA_PARAM.METHOD]: 'card' })
+        const value = amountDueToday(plan, discountedAtOpen.current)
+        trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
+          [GA_PARAM.PLAN]: plan,
+          [GA_PARAM.METHOD]: 'card',
+          [GA_PARAM.CURRENCY]: GA_CURRENCY,
+          [GA_PARAM.VALUE]: value,
+          [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discountedAtOpen.current),
+          [GA_PARAM.ITEMS]: gaItems(plan, value),
+        })
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return
         setLoading(false)
+        trackEvent(GA_EVENT.PAYMENT_ERROR, {
+          [GA_PARAM.PLAN]: plan,
+          [GA_PARAM.METHOD]: 'card',
+          [GA_PARAM.ERROR_TYPE]: 'card_form_load_failed',
+        })
         setLocalError(
           cause instanceof Error ? cause.message : 'Secure card checkout could not load.',
         )
@@ -133,7 +154,7 @@ export function CheckoutSheet({
     <div
       className="sheet-veil fixed inset-0 z-50 flex items-end justify-center bg-[rgba(35,31,51,0.42)] md:items-center"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) dismiss(GA_VALUE.BACKDROP)
       }}
     >
       <div
@@ -271,10 +292,7 @@ export function CheckoutSheet({
           </p>
           <button
             type="button"
-            onClick={() => {
-              trackEvent(GA_EVENT.CHECKOUT_DISMISS, { [GA_PARAM.PLAN]: plan })
-              onClose()
-            }}
+            onClick={() => dismiss(GA_VALUE.BUTTON)}
             className="mt-2 min-h-11 w-full text-sm font-semibold text-[#4a36ae] underline underline-offset-4"
           >
             Not now

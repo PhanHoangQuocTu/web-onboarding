@@ -9,7 +9,7 @@ import { OfferCountdown } from '@/components/OfferCountdown'
 import { PaymentActions } from '@/components/PaymentActions'
 import { Laurel } from '@/components/Laurel'
 import { PricingDetails, ValuePanel } from '@/components/PricingDetails'
-import { trackEvent, type GaEvent } from '@/lib/gtag'
+import { gaItems, gaMethod, purchaseParams, trackEvent, type GaEvent } from '@/lib/gtag'
 import {
   closePaddleCheckout,
   detectCountry,
@@ -25,6 +25,7 @@ import {
 import { subject } from '@/lib/plan'
 import {
   amountDueToday,
+  isDiscounted,
   money,
   price,
   TRIAL,
@@ -33,7 +34,7 @@ import {
   yearlyPrice,
   type Plan,
 } from '@/lib/pricing'
-import { GA_CURRENCY, GA_EVENT, GA_PARAM } from '@/utils/const'
+import { GA_CURRENCY, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 
 const planOptions = (discounted: boolean) =>
   [
@@ -65,6 +66,14 @@ const walletClickEvents: Record<WalletMethod, GaEvent> = {
   google_pay: GA_EVENT.PAY_GOOGLE_PAY_CLICK,
 }
 
+function trackPaymentError(errorType: string, plan: Plan, method?: string | null) {
+  trackEvent(GA_EVENT.PAYMENT_ERROR, {
+    [GA_PARAM.PLAN]: plan,
+    [GA_PARAM.ERROR_TYPE]: errorType.slice(0, 100),
+    ...(method ? { [GA_PARAM.METHOD]: gaMethod(method) } : {}),
+  })
+}
+
 export function PricingScreen() {
   const {
     answers,
@@ -93,8 +102,16 @@ export function PricingScreen() {
   const planRef = useRef<Plan>(plan)
   const discountedRef = useRef(discounted)
   const completedTransaction = useRef<string | null>(null)
+  const overlayMethod = useRef<PaymentMethod | null>(null)
+  const expiryTracked = useRef(offerExpired)
   const closeSheet = useCallback(() => setSheet(false), [])
-  const expireOffer = useCallback(() => setOfferExpired(true), [])
+  const expireOffer = useCallback(() => {
+    if (!expiryTracked.current) {
+      expiryTracked.current = true
+      trackEvent(GA_EVENT.OFFER_EXPIRED, { [GA_PARAM.PLAN]: planRef.current })
+    }
+    setOfferExpired(true)
+  }, [])
   const hideBar = useCallback(() => setBarGone(true), [])
   const hasBar = !barGone
   useEffect(() => {
@@ -132,13 +149,16 @@ export function PricingScreen() {
     () =>
       subscribePaddleEvents((event) => {
         const eventPlan = planFromPriceId(event.data?.items?.[0]?.price_id) ?? planRef.current
+        const failedMethod = () =>
+          event.data?.payment?.method_details?.type ?? overlayMethod.current
         if (event.name === 'checkout.payment.initiated') {
           const method = event.data?.payment.method_details.type ?? 'card'
           trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
             [GA_PARAM.PLAN]: eventPlan,
             [GA_PARAM.CURRENCY]: GA_CURRENCY,
             [GA_PARAM.VALUE]: amountDueToday(eventPlan, discountedRef.current),
-            [GA_PARAM.METHOD]: method,
+            [GA_PARAM.METHOD]: gaMethod(method),
+            [GA_PARAM.DISCOUNTED]: isDiscounted(eventPlan, discountedRef.current),
           })
         }
         if (event.name === 'checkout.completed' && event.data) {
@@ -147,11 +167,15 @@ export function PricingScreen() {
           completedTransaction.current = transactionId
           const purchasedPlan = eventPlan
           const paid = event.data.totals.total
-          trackEvent(GA_EVENT.PADDLE_CHECKOUT_COMPLETE, {
-            [GA_PARAM.PLAN]: purchasedPlan,
-            [GA_PARAM.TRANSACTION_ID]: transactionId,
-            [GA_PARAM.CURRENCY]: event.data.currency_code,
-            [GA_PARAM.VALUE]: paid,
+          trackEvent(GA_EVENT.PURCHASE, {
+            ...purchaseParams(
+              purchasedPlan,
+              transactionId,
+              event.data.currency_code,
+              event.data.totals,
+            ),
+            [GA_PARAM.METHOD]: gaMethod(event.data.payment.method_details.type),
+            [GA_PARAM.DISCOUNTED]: event.data.totals.discount > 0,
           })
           setReceipt({
             plan: purchasedPlan,
@@ -167,6 +191,8 @@ export function PricingScreen() {
         }
         // The wallet isn't set up on this device (e.g. in-app browsers); hide its button.
         if (event.code === 'no_payment_methods_available') {
+          trackPaymentError(event.code, eventPlan, overlayMethod.current)
+          overlayMethod.current = null
           void closePaddleCheckout('overlay')
           setOverlay(false)
           setWallet(null)
@@ -174,12 +200,21 @@ export function PricingScreen() {
           return
         }
         if (event.name === 'checkout.error' || event.name === 'checkout.payment.error') {
+          trackPaymentError(event.code || event.name, eventPlan, failedMethod())
           setCheckoutError(event.detail || 'Payment could not be completed. Please try again.')
         }
         if (event.name === 'checkout.failed') {
+          trackPaymentError(event.name, eventPlan, failedMethod())
           setCheckoutError('Payment could not be completed. Please try again.')
         }
         if (event.name === 'checkout.closed' && event.data?.settings?.display_mode !== 'inline') {
+          // Skips closes after a purchase or our own close above.
+          if (overlayMethod.current && !completedTransaction.current)
+            trackEvent(GA_EVENT.CHECKOUT_OVERLAY_CLOSED, {
+              [GA_PARAM.PLAN]: eventPlan,
+              [GA_PARAM.METHOD]: overlayMethod.current,
+            })
+          overlayMethod.current = null
           markOverlayClosed()
           setOverlay(false)
         }
@@ -192,9 +227,10 @@ export function PricingScreen() {
     [GA_PARAM.PLAN]: plan,
     [GA_PARAM.CURRENCY]: GA_CURRENCY,
     [GA_PARAM.VALUE]: amountDueToday(plan, discounted),
+    [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discounted),
   }
-  const scrollToPlans = () => {
-    trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK)
+  const scrollToPlans = (source: string) => {
+    trackEvent(GA_EVENT.CHOOSE_PLAN_CLICK, { [GA_PARAM.SOURCE]: source })
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' })
   }
@@ -207,10 +243,16 @@ export function PricingScreen() {
       const country = await detectCountry()
       const address = country ? { countryCode: country } : undefined
       await openPaddleCheckout({ plan, discounted, email, sessionId, method, address })
-      trackEvent(GA_EVENT.BEGIN_CHECKOUT, { ...payParams, [GA_PARAM.METHOD]: method })
+      trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
+        ...payParams,
+        [GA_PARAM.METHOD]: method,
+        [GA_PARAM.ITEMS]: gaItems(plan, amountDueToday(plan, discounted)),
+      })
+      overlayMethod.current = method
       setOverlay(true)
       setSheet(false)
     } catch (error) {
+      trackPaymentError('checkout_open_failed', plan, method)
       setCheckoutError(error instanceof Error ? error.message : 'Paddle checkout could not open.')
     } finally {
       setBusy(false)
@@ -224,7 +266,7 @@ export function PricingScreen() {
           onExpire={expireOffer}
           onGone={hideBar}
           showGo={pastPay}
-          onGo={scrollToPlans}
+          onGo={() => scrollToPlans(GA_VALUE.COUNTDOWN)}
         />
       )}
       {createPortal(
@@ -232,7 +274,7 @@ export function PricingScreen() {
           type="button"
           aria-hidden={!showFab}
           tabIndex={showFab ? 0 : -1}
-          onClick={scrollToPlans}
+          onClick={() => scrollToPlans(GA_VALUE.FAB)}
           className={`brand-font fixed left-1/2 top-[calc(16px+env(safe-area-inset-top,0px))] z-30 inline-flex h-11 items-center gap-2 rounded-full bg-(--primary) pl-3.5 pr-[18px] text-base font-semibold text-white shadow-[0_8px_20px_rgba(35,31,51,0.22)] transition-[opacity,transform] duration-200 hover:bg-(--primary-hover) ${showFab ? 'pointer-events-auto -translate-x-1/2 translate-y-0 opacity-100' : 'pointer-events-none -translate-x-1/2 -translate-y-2 opacity-0'}`}
         >
           <svg
@@ -271,6 +313,7 @@ export function PricingScreen() {
                   [GA_PARAM.PLAN]: item.id,
                   [GA_PARAM.CURRENCY]: GA_CURRENCY,
                   [GA_PARAM.VALUE]: amountDueToday(item.id, discounted),
+                  [GA_PARAM.DISCOUNTED]: isDiscounted(item.id, discounted),
                 })
               setPlan(item.id)
             }}
@@ -310,6 +353,7 @@ export function PricingScreen() {
             void startCheckout('paypal')
           }}
           onCardClick={() => {
+            trackEvent(GA_EVENT.PAY_CARD_CLICK, payParams)
             setCheckoutError(null)
             setSheet(true)
           }}

@@ -5,7 +5,9 @@ import { createPortal } from 'react-dom'
 import { useFlow } from '@/components/FlowProvider'
 import { CheckIcon } from '@/components/CheckIcon'
 import { useActivation } from '@/lib/activation'
+import { trackEvent } from '@/lib/gtag'
 import { isPaddleSandbox } from '@/lib/paddle'
+import { GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const h3 = 'mb-3 text-2xl font-bold tracking-[-0.02em]'
 const store =
@@ -64,6 +66,14 @@ export function CompleteScreen() {
   const { answers, receipt, sessionId, go, ready } = useFlow()
   const [copied, setCopied] = useState(false)
   const activation = useActivation(receipt?.transactionId, sessionId)
+  const transactionId = receipt?.transactionId
+  useEffect(() => {
+    if (ready && !transactionId) trackEvent(GA_EVENT.COMPLETE_NO_RECEIPT)
+  }, [ready, transactionId])
+  useEffect(() => {
+    if (activation.state === 'failed')
+      trackEvent(GA_EVENT.ACTIVATION_CODE_ERROR, { [GA_PARAM.TRANSACTION_ID]: transactionId ?? '' })
+  }, [activation.state, transactionId])
   if (!ready) return null
   if (!receipt?.transactionId)
     return (
@@ -108,6 +118,9 @@ export function CompleteScreen() {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(code ?? receipt.transactionId)
+      trackEvent(GA_EVENT.ACTIVATION_CODE_COPY, {
+        [GA_PARAM.CONTENT_TYPE]: code ? 'activation_code' : 'transaction_id',
+      })
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -203,6 +216,7 @@ export function CompleteScreen() {
           <a
             className={store}
             href="https://apps.apple.com/us/app/ar-sketch-trace/id6754591942"
+            onClick={() => trackEvent(GA_EVENT.APP_STORE_CLICK, { [GA_PARAM.STORE]: 'ios' })}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -222,6 +236,7 @@ export function CompleteScreen() {
           <a
             className={store}
             href="https://play.google.com/store/apps/details?id=com.ar.trace.sketch.draw"
+            onClick={() => trackEvent(GA_EVENT.APP_STORE_CLICK, { [GA_PARAM.STORE]: 'android' })}
             target="_blank"
             rel="noopener noreferrer"
           >

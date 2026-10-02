@@ -2,6 +2,8 @@
 
 import { useRef } from 'react'
 import { isValidEmail } from '@/lib/email'
+import { trackEvent } from '@/lib/gtag'
+import { GA_EVENT } from '@/utils/const'
 import { useFlow } from './FlowProvider'
 import { StickyAction } from './Ui'
 
@@ -15,6 +17,7 @@ export function EmailScreen() {
     if (!canContinue) return
     if (!input.current?.reportValidity()) return
     setEmail(email.trim())
+    trackEvent(GA_EVENT.GENERATE_LEAD)
     go('offer')
   }
 
