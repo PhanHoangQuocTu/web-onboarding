@@ -173,6 +173,87 @@ export const flow = [
 // 1-based position of a screen in the whole funnel, for GA step ordering.
 const funnel: string[] = [...flow, 'plan', 'email', 'offer', 'pricing', 'complete']
 export const stepIndex = (id: string) => funnel.indexOf(id) + 1
+// Readable GA names for quiz questions, numbered like the on-screen "n / 14".
+const gaNames: Record<string, string> = {
+  who: 'who_draws',
+  goal: 'why_draw',
+  draw: 'what_to_draw',
+  level: 'skill_level',
+  block: 'past_blockers',
+  device: 'draw_device',
+  skillup: 'improve_skill',
+  style: 'help_level',
+  motive: 'motivation',
+  photos: 'trace_photos',
+  time: 'daily_time',
+  aim: 'goal_30_days',
+  remind: 'reminder',
+  frust: 'other_app_issues',
+}
+// Screens that are not questions get a name saying where they sit in the quiz.
+const gaBreaks: Record<string, string> = { break1: 'break_after_q5', break2: 'break_after_q10' }
+// Readable GA answer values per question; the stored answers keep their short values.
+const gaAnswers: Record<string, Record<string, string>> = {
+  who: { me: 'just_me', child: 'my_child', both: 'both_of_us' },
+  goal: {
+    gift: 'personal_gift',
+    relax: 'unwind',
+    kids: 'screen_free_time',
+    hobby: 'daily_hobby',
+  },
+  draw: {
+    people: 'portraits_people',
+    characters: 'anime_cartoons',
+    animals: 'animals_pets',
+    nature: 'flowers_cute_things',
+  },
+  level: {
+    beginner: 'beginner_stick_figures',
+    amateur: 'amateur_simple_shapes',
+    intermediate: 'intermediate_faster',
+  },
+  block: {
+    talent: 'not_talented_enough',
+    time: 'no_time_to_practice',
+    start: 'dont_know_where_to_start',
+  },
+  device: { phone: 'phone', tablet: 'ipad_tablet' },
+  skillup: { proportion: 'proportions', lines: 'smooth_lines', shading: 'shading_details' },
+  style: {
+    full: 'trace_all_step_by_step',
+    outline: 'trace_outline_then_freehand',
+    reference: 'look_and_draw',
+  },
+  motive: {
+    results: 'quick_daily_wins',
+    big: 'one_big_masterpiece',
+    streaks: 'reminders_streaks',
+  },
+  photos: {
+    mostly: 'mostly_my_photos',
+    mix: 'mix_photos_and_templates',
+    library: 'app_templates_only',
+  },
+  time: { short: '5_10_min', mid: '15_30_min', long: '30_plus_min' },
+  aim: {
+    notrace: 'draw_without_tracing',
+    masterpiece: 'one_finished_masterpiece',
+    daily: 'draw_daily_to_relax',
+  },
+  remind: { daily: 'every_day', three: 'three_times_a_week', no: 'no_reminders' },
+  frust: {
+    ads: 'too_many_ads',
+    hidden: 'hidden_weekly_charges',
+    photofee: 'extra_fee_for_own_photos',
+    never: 'havent_tried_other_apps',
+  },
+}
+export const gaAnswer = (questionId: string, value: string) =>
+  gaAnswers[questionId]?.[value] ?? value
+export const gaScreenName = (id: string) =>
+  gaNames[id]
+    ? `${String(questionNumber(id)).padStart(2, '0')}_${gaNames[id]}`
+    : (gaBreaks[id] ?? id)
 export const questionNumber = (id: string) => questions.findIndex((q) => q.id === id) + 1
 export const nextStep = (id: string) => {
   const index = flow.indexOf(id as (typeof flow)[number])

@@ -2,7 +2,7 @@ import { getAnalytics, isSupported, logEvent, setUserId, type Analytics } from '
 import { getFirebaseApp } from '@/lib/firebase'
 import { FIREBASE_CONFIG, type GA_EVENT, type GA_PARAM } from '@/utils/const'
 import type { Plan } from '@/lib/pricing'
-import { stepIndex } from '@/lib/quiz'
+import { gaScreenName, stepIndex } from '@/lib/quiz'
 
 export type GaEvent = (typeof GA_EVENT)[keyof typeof GA_EVENT]
 type GaParam = (typeof GA_PARAM)[keyof typeof GA_PARAM]
@@ -37,7 +37,11 @@ const slug = (part: string) =>
 
 /** Unique key for one clickable thing: `<step>.<element>[.<value>]`. */
 export function clickId(element: string, value?: string | number) {
-  return [currentStep, element, value === undefined ? '' : slug(String(value))]
+  return [
+    currentStep && gaScreenName(currentStep),
+    element,
+    value === undefined ? '' : slug(String(value)),
+  ]
     .filter(Boolean)
     .join('.')
 }
@@ -57,9 +61,11 @@ export function clickParams(element: string, value?: string | number, detail?: s
 }
 
 export function trackEvent(name: GaEvent, params: GtagParams = {}) {
+  const step = typeof params.screen_name === 'string' ? params.screen_name : currentStep
   const payload = {
-    ...(currentStep ? { screen_name: currentStep, step_index: stepIndex(currentStep) } : {}),
+    ...(step ? { step_index: stepIndex(step) } : {}),
     ...params,
+    ...(step ? { screen_name: gaScreenName(step) } : {}),
   }
   void getAnalyticsInstance()?.then((a) => a && logEvent(a, name as string, payload))
 }

@@ -77,3 +77,26 @@ export async function fetchTransaction(id: string): Promise<PaddleTransaction | 
   const body = (await response.json()) as { data: PaddleTransaction }
   return body.data
 }
+
+export async function createTransaction(
+  priceId: string,
+  discountId: string,
+  sessionId: string,
+): Promise<string> {
+  const key = process.env.PADDLE_API_KEY?.trim()
+  if (!key) throw new Error('PADDLE_API_KEY is not configured')
+  const response = await fetch(`${apiBase()}/transactions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items: [{ price_id: priceId, quantity: 1 }],
+      discount_id: discountId,
+      custom_data: { session_id: sessionId },
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!response.ok) throw new Error(`Paddle POST /transactions failed: ${response.status}`)
+  const body = (await response.json()) as { data: { id: string } }
+  return body.data.id
+}

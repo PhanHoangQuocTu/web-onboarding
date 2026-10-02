@@ -35,8 +35,8 @@ export function CheckoutSheet({
 }) {
   const { answers, plan, email, setEmail, sessionId } = useFlow()
   const heading = useRef<HTMLHeadingElement>(null)
-  // Later discount changes are applied via syncCheckoutOrder, not by reopening the form.
-  const discountedAtOpen = useRef(discounted)
+  // Paddle keeps the discount the form opened with, even after the timer runs out.
+  const [discountedAtOpen] = useState(discounted)
   const tracked = useRef(false)
   const [loading, setLoading] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
@@ -100,7 +100,7 @@ export function CheckoutSheet({
 
     void openPaddleCheckout({
       plan,
-      discounted: discountedAtOpen.current,
+      discounted: discountedAtOpen,
       email,
       sessionId,
       method: 'card',
@@ -113,13 +113,13 @@ export function CheckoutSheet({
         setLoading(false)
         if (tracked.current) return
         tracked.current = true
-        const value = amountDueToday(plan, discountedAtOpen.current)
+        const value = amountDueToday(plan, discountedAtOpen)
         trackEvent(GA_EVENT.BEGIN_CHECKOUT, {
           [GA_PARAM.PLAN]: plan,
           [GA_PARAM.METHOD]: 'card',
           [GA_PARAM.CURRENCY]: GA_CURRENCY,
           [GA_PARAM.VALUE]: value,
-          [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discountedAtOpen.current),
+          [GA_PARAM.DISCOUNTED]: isDiscounted(plan, discountedAtOpen),
           [GA_PARAM.ITEMS]: gaItems(plan, value),
         })
       })
@@ -141,17 +141,17 @@ export function CheckoutSheet({
       unsubscribe()
       void closePaddleCheckout('card')
     }
-  }, [canOpen, plan, email, sessionId, country, zip])
+  }, [canOpen, plan, discountedAtOpen, email, sessionId, country, zip])
 
   const planKeys = makePlan(answers)
     .filter((key) => key !== 'photo')
     .slice(0, 3)
-  const cost = price(plan, discounted)
+  const cost = price(plan, discountedAtOpen)
   const title =
     plan === 'trial'
       ? '3-Day Trial'
       : plan === 'yearly'
-        ? `Yearly plan${discounted ? ' · 50% off' : ''}`
+        ? `Yearly plan${discountedAtOpen ? ' · 50% off' : ''}`
         : 'Weekly plan'
 
   const dialog = (
@@ -209,7 +209,7 @@ export function CheckoutSheet({
               <b className="brand-font text-2xl text-[#231f33]">{checkoutTotal ?? cost.today}</b>
             </div>
             <small className="mt-1 block text-sm leading-snug text-[#5f5a72]">
-              {plan === 'yearly' && discounted && '50% off the first year · '}
+              {plan === 'yearly' && discountedAtOpen && '50% off the first year · '}
               {cost.next}
             </small>
           </div>
