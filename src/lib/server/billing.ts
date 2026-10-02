@@ -167,26 +167,69 @@ export async function findActivation(transactionId: string): Promise<ActivationR
   return rows[0] ?? null
 }
 
-export async function redeemCode(input: string) {
+const MAX_DEVICE_ID = 128
+
+export async function readCodeRequest(request: Request) {
+  const body = (await request.json().catch(() => null)) as {
+    code?: unknown
+    deviceId?: unknown
+  } | null
+  const { code, deviceId } = body ?? {}
+  if (typeof code !== 'string' || code.length > 64) return null
+  if (typeof deviceId !== 'string' || !deviceId.trim() || deviceId.length > MAX_DEVICE_ID)
+    return null
+  return { code, deviceId: deviceId.trim() }
+}
+
+type CodeRow = {
+  device_id: string | null
+  status: string
+  current_period_end: Date | null
+  price_id: string | null
+}
+
+function deviceEntitlement(row: CodeRow | undefined, deviceId: string) {
+  if (!row) return null
+  const activeOnThisDevice = row.device_id === deviceId
+  const result = entitlement(row.status, row.current_period_end, row.price_id)
+  return { ...result, premium: result.premium && activeOnThisDevice, activeOnThisDevice }
+}
+
+// Binds the code to this device, taking it from any previous one.
+export async function redeemCode(input: string, deviceId: string) {
   const code = normalizeCode(input)
   if (code.length !== CODE_LENGTH) return null
-  const { rows } = await db.query<{
-    status: string
-    current_period_end: Date | null
-    price_id: string | null
-  }>(
-    `WITH hit AS (
+  const { rows } = await db.query<CodeRow>(
+    `WITH new_device AS (
+       INSERT INTO activation_devices (code, device_id)
+       SELECT code, $2 FROM activation_codes WHERE code = $1
+       ON CONFLICT DO NOTHING
+       RETURNING 1
+     ), hit AS (
        UPDATE activation_codes SET
+         device_id = $2,
+         device_count = device_count + (SELECT count(*) FROM new_device)::int,
          redeem_count = redeem_count + 1,
          first_redeemed_at = COALESCE(first_redeemed_at, now()),
          last_redeemed_at = now()
        WHERE code = $1
-       RETURNING subscription_id
+       RETURNING subscription_id, device_id
      )
-     SELECT s.status, s.current_period_end, s.price_id
+     SELECT hit.device_id, s.status, s.current_period_end, s.price_id
      FROM hit JOIN subscriptions s ON s.id = hit.subscription_id`,
+    [code, deviceId],
+  )
+  return deviceEntitlement(rows[0], deviceId)
+}
+
+export async function codeStatus(input: string, deviceId: string) {
+  const code = normalizeCode(input)
+  if (code.length !== CODE_LENGTH) return null
+  const { rows } = await db.query<CodeRow>(
+    `SELECT c.device_id, s.status, s.current_period_end, s.price_id
+     FROM activation_codes c JOIN subscriptions s ON s.id = c.subscription_id
+     WHERE c.code = $1`,
     [code],
   )
-  const row = rows[0]
-  return row ? entitlement(row.status, row.current_period_end, row.price_id) : null
+  return deviceEntitlement(rows[0], deviceId)
 }

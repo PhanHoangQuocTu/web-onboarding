@@ -45,7 +45,9 @@ describe('Paddle documented webhook payloads', () => {
     }
     expect(await activation.json()).toEqual({ code: code.match(/.{4}/g)!.join('-'), ...expected })
 
-    const redeemed = await redeem(jsonRequest('http://test/api/activation/redeem', { code }))
-    expect(await redeemed.json()).toEqual(expected)
+    const redeemed = await redeem(
+      jsonRequest('http://test/api/activation/redeem', { code, deviceId: 'device-a' }),
+    )
+    expect(await redeemed.json()).toEqual({ ...expected, activeOnThisDevice: true })
   })
 })
