@@ -7,7 +7,7 @@ import { CheckIcon } from './CheckIcon'
 import { DrawTiles } from './DrawTiles'
 import { Phrases, StickyAction } from './Ui'
 import { clickParams, trackEvent } from '@/lib/gtag'
-import { nextStep, titleFor, type Question } from '@/lib/quiz'
+import { gaAnswer, gaScreenName, nextStep, titleFor, type Question } from '@/lib/quiz'
 import { GA_ELEMENT, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const labelParts = (label: string) => {
@@ -42,9 +42,9 @@ export function QuestionScreen({ question }: { question: Question }) {
       const on = !selectedValues.includes(value)
       const solo = value === question.none
       trackEvent(GA_EVENT.ANSWER_SELECT, {
-        ...clickParams(GA_ELEMENT.ANSWER, value),
-        [GA_PARAM.QUESTION_ID]: question.id,
-        [GA_PARAM.ANSWER_VALUE]: value,
+        ...clickParams(GA_ELEMENT.ANSWER, gaAnswer(question.id, value)),
+        [GA_PARAM.QUESTION_ID]: gaScreenName(question.id),
+        [GA_PARAM.ANSWER_VALUE]: gaAnswer(question.id, value),
         [GA_PARAM.SELECTED]: on,
       })
       setAnswer(
@@ -57,9 +57,9 @@ export function QuestionScreen({ question }: { question: Question }) {
     }
     if (selected) return
     trackEvent(GA_EVENT.ANSWER_SELECT, {
-      ...clickParams(GA_ELEMENT.ANSWER, value),
-      [GA_PARAM.QUESTION_ID]: question.id,
-      [GA_PARAM.ANSWER_VALUE]: value,
+      ...clickParams(GA_ELEMENT.ANSWER, gaAnswer(question.id, value)),
+      [GA_PARAM.QUESTION_ID]: gaScreenName(question.id),
+      [GA_PARAM.ANSWER_VALUE]: gaAnswer(question.id, value),
       [GA_PARAM.SELECTED]: true,
     })
     setSelected(value)
