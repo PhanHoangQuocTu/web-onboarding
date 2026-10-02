@@ -13,7 +13,6 @@ const priceIds: Record<Plan, string | undefined> = {
   weekly: process.env.NEXT_PUBLIC_PADDLE_PRICE_WEEKLY?.trim(),
   yearly: process.env.NEXT_PUBLIC_PADDLE_PRICE_YEARLY?.trim(),
 }
-const discountCode = process.env.NEXT_PUBLIC_PADDLE_DISCOUNT_CODE?.trim()
 
 export const isPaddleSandbox = token?.startsWith('test_') ?? false
 
@@ -34,7 +33,6 @@ let countryPromise: Promise<string | null> | null = null
 
 let paddlePromise: Promise<Paddle> | null = null
 let openCheckout: CheckoutKind | null = null
-let openOrder: string | null = null
 const listeners = new Set<(event: PaddleEventData) => void>()
 
 const methodNames: Record<Exclude<PaymentMethod, 'card'>, string> = {
@@ -88,17 +86,23 @@ async function getPaddle() {
   return paddlePromise
 }
 
-const orderKey = (plan: Plan, discounted: boolean) => `${plan}:${plan === 'yearly' && discounted}`
-
-function planItems(plan: Plan, discounted: boolean) {
+function planItems(plan: Plan) {
   const priceId = priceIds[plan]
   if (!priceId) throw new Error(`Paddle price for the ${plan} plan is not configured.`)
-  const withDiscount = plan === 'yearly' && discounted
-  if (withDiscount && !discountCode) throw new Error('The yearly discount code is not configured.')
-  return {
-    items: [{ priceId, quantity: 1 }],
-    discountCode: withDiscount ? discountCode : null,
-  }
+  return [{ priceId, quantity: 1 }]
+}
+
+async function discountedTransaction(sessionId: string, signal?: AbortSignal) {
+  const response = await fetch('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+    signal,
+  })
+  const body = (await response.json().catch(() => null)) as { transactionId?: string } | null
+  if (!response.ok || !body?.transactionId)
+    throw new Error('The yearly discount could not be applied. Please try again.')
+  return body.transactionId
 }
 
 function checkoutContext(email: string, sessionId: string, address?: CheckoutAddress) {
@@ -122,16 +126,6 @@ export function detectCountry() {
   return countryPromise
 }
 
-// Updates the items/discount of whichever checkout is open.
-export async function syncCheckoutOrder(plan: Plan, discounted: boolean) {
-  const key = orderKey(plan, discounted)
-  if (!openCheckout || openOrder === key) return
-  const order = planItems(plan, discounted)
-  openOrder = key
-  const paddle = await getPaddle()
-  if (openCheckout && openOrder === key) paddle.Checkout.updateCheckout(order)
-}
-
 export async function openPaddleCheckout({
   plan,
   discounted,
@@ -151,23 +145,28 @@ export async function openPaddleCheckout({
   address?: CheckoutAddress
   signal?: AbortSignal
 }) {
-  const order = planItems(plan, discounted)
-  const paddle = await getPaddle()
-  if (signal?.aborted) return false
-  if (method !== 'card') {
-    const preview = await paddle.PricePreview({ items: order.items, address })
-    if (!preview.data.availablePaymentMethods.includes(method))
-      throw new Error(
-        `${methodNames[method]} is unavailable for this purchase. Choose another payment method.`,
-      )
-  }
+  const items = planItems(plan)
+  const withDiscount = plan === 'yearly' && discounted
+  const [paddle, transactionId] = await Promise.all([
+    getPaddle().then(async (paddle) => {
+      if (method === 'card') return paddle
+      const preview = await paddle.PricePreview({ items, address })
+      if (!preview.data.availablePaymentMethods.includes(method))
+        throw new Error(
+          `${methodNames[method]} is unavailable for this purchase. Choose another payment method.`,
+        )
+      return paddle
+    }),
+    withDiscount ? discountedTransaction(sessionId, signal) : null,
+  ])
   const allowedPaymentMethods: AvailablePaymentMethod[] = [method]
 
   if (signal?.aborted) return false
 
+  // The server-created transaction already carries the session in custom_data.
+  const context = checkoutContext(email, sessionId, address)
   paddle.Checkout.open({
-    ...order,
-    ...checkoutContext(email, sessionId, address),
+    ...(transactionId ? { transactionId, customer: context.customer } : { items, ...context }),
     settings: {
       displayMode,
       // Multi-page skips the email/country page when they are prefilled.
@@ -185,7 +184,6 @@ export async function openPaddleCheckout({
     },
   })
   openCheckout = displayMode === 'inline' ? 'card' : 'overlay'
-  openOrder = orderKey(plan, discounted)
   return true
 }
 
@@ -195,12 +193,10 @@ export async function closePaddleCheckout(kind: CheckoutKind) {
   // Another checkout may have replaced it while awaiting.
   if (openCheckout !== kind) return
   openCheckout = null
-  openOrder = null
   paddle.Checkout.close()
 }
 
 export function markOverlayClosed() {
   if (openCheckout !== 'overlay') return
   openCheckout = null
-  openOrder = null
 }

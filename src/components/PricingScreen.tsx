@@ -25,7 +25,6 @@ import {
   openPaddleCheckout,
   planFromPriceId,
   subscribePaddleEvents,
-  syncCheckoutOrder,
   type PaymentMethod,
   type WalletMethod,
 } from '@/lib/paddle'
@@ -99,7 +98,6 @@ export function PricingScreen() {
   )
   const discounted = !offerExpired
   const [sheet, setSheet] = useState(false)
-  const [overlay, setOverlay] = useState(false)
   const [busy, setBusy] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [wallet, setWallet] = useState<WalletMethod | null>(null)
@@ -107,7 +105,6 @@ export function PricingScreen() {
   const [barGone, setBarGone] = useState(offerExpired)
   const [pastPay, setPastPay] = useState(false)
   const planRef = useRef<Plan>(plan)
-  const discountedRef = useRef(discounted)
   const completedTransaction = useRef<string | null>(null)
   const overlayMethod = useRef<PaymentMethod | null>(null)
   const expiryTracked = useRef(offerExpired)
@@ -137,8 +134,7 @@ export function PricingScreen() {
   }, [ready, hasBar])
   useEffect(() => {
     planRef.current = plan
-    discountedRef.current = discounted
-  }, [plan, discounted])
+  }, [plan])
   useEffect(() => {
     if (!ready) return
     startOfferTimer()
@@ -148,10 +144,6 @@ export function PricingScreen() {
     // Warms the checkout's country prefill.
     void detectCountry()
   }, [ready, startOfferTimer])
-  // Drops the discount from the card form or PayPal overlay when the timer runs out.
-  useEffect(() => {
-    if (sheet || overlay) void syncCheckoutOrder(plan, discounted).catch(() => {})
-  }, [sheet, overlay, plan, discounted])
   useEffect(
     () =>
       subscribePaddleEvents((event) => {
@@ -160,13 +152,15 @@ export function PricingScreen() {
           event.data?.payment?.method_details?.type ?? overlayMethod.current
         if (event.name === 'checkout.payment.initiated') {
           const method = event.data?.payment.method_details.type ?? 'card'
+          // An open checkout keeps its discount after the timer runs out.
+          const discountApplied = (event.data?.totals.discount ?? 0) > 0
           trackEvent(GA_EVENT.PAY_SUBMIT_CLICK, {
             ...clickParams(GA_ELEMENT.CHECKOUT, `submit_${gaMethod(method)}`, eventPlan),
             [GA_PARAM.PLAN]: eventPlan,
             [GA_PARAM.CURRENCY]: GA_CURRENCY,
-            [GA_PARAM.VALUE]: amountDueToday(eventPlan, discountedRef.current),
+            [GA_PARAM.VALUE]: amountDueToday(eventPlan, discountApplied),
             [GA_PARAM.METHOD]: gaMethod(method),
-            [GA_PARAM.DISCOUNTED]: isDiscounted(eventPlan, discountedRef.current),
+            [GA_PARAM.DISCOUNTED]: isDiscounted(eventPlan, discountApplied),
           })
         }
         if (event.name === 'checkout.completed' && event.data) {
@@ -202,7 +196,6 @@ export function PricingScreen() {
           trackPaymentError(event.code, eventPlan, overlayMethod.current)
           overlayMethod.current = null
           void closePaddleCheckout('overlay')
-          setOverlay(false)
           setWallet(null)
           setCheckoutError('This payment method is unavailable on this device. Choose another one.')
           return
@@ -225,7 +218,6 @@ export function PricingScreen() {
             })
           overlayMethod.current = null
           markOverlayClosed()
-          setOverlay(false)
         }
       }),
     [go, setReceipt],
@@ -262,7 +254,6 @@ export function PricingScreen() {
         [GA_PARAM.ITEMS]: gaItems(plan, amountDueToday(plan, discounted)),
       })
       overlayMethod.current = method
-      setOverlay(true)
       setSheet(false)
     } catch (error) {
       trackPaymentError('checkout_open_failed', plan, method)

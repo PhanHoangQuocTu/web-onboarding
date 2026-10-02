@@ -16,11 +16,11 @@ Open http://localhost:3000. The entire 14-question flow, the interstitials, plan
 
 ## Paddle checkout
 
-Copy `.env.example` to `.env.local` and set the Paddle client token, price IDs, and yearly discount code. A `test_` client token opens Paddle sandbox checkout; a `live_` token opens production checkout. Restart the dev server or rebuild production after changing any `NEXT_PUBLIC_` value.
+Copy `.env.example` to `.env.local` and set the Paddle client token, price IDs, API key, and yearly discount ID (`PADDLE_DISCOUNT_ID`, server-only). A `test_` client token opens Paddle sandbox checkout; a `live_` token opens production checkout. Restart the dev server or rebuild production after changing any `NEXT_PUBLIC_` value.
 
 Configure a default payment link in the corresponding Paddle dashboard account. The trial price should represent the 3-day offer and its weekly renewal; verify all price billing periods and the discount's eligibility in Paddle before going live. Paddle calculates the final total, including applicable tax, in its checkout.
 
-The wallet buttons open Paddle's overlay checkout with the selected payment method. The card button opens a branded dialog containing Paddle's secure inline checkout frame, where Paddle collects email and card details and submits payment. The yearly plan applies the configured discount code. Google Pay, Apple Pay, and PayPal availability depends on the buyer's device, browser, location, and Paddle account settings. If a wallet is unavailable, Paddle does not switch that button to card checkout. The completion screen appears only after Paddle emits `checkout.completed`.
+The wallet buttons open Paddle's overlay checkout with the selected payment method. The card button opens a branded dialog containing Paddle's secure inline checkout frame, where Paddle collects email and card details and submits payment. While the offer runs, the yearly checkout opens a transaction that `POST /api/checkout` creates with the discount, so the discount needs no code. Create it with no code, checkout redemption turned off (`enabled_for_checkout: false`), restricted to the yearly price, and applying to the first payment only (`recur: false`), separately in sandbox and live. An open checkout keeps its discount after the timer runs out. Google Pay, Apple Pay, and PayPal availability depends on the buyer's device, browser, location, and Paddle account settings. If a wallet is unavailable, Paddle does not switch that button to card checkout. The completion screen appears only after Paddle emits `checkout.completed`.
 
 ## Backend and activation codes
 
