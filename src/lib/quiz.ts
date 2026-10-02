@@ -170,6 +170,9 @@ export const flow = [
   'frust',
   'loading',
 ] as const
+// 1-based position of a screen in the whole funnel, for GA step ordering.
+const funnel: string[] = [...flow, 'plan', 'email', 'offer', 'pricing', 'complete']
+export const stepIndex = (id: string) => funnel.indexOf(id) + 1
 export const questionNumber = (id: string) => questions.findIndex((q) => q.id === id) + 1
 export const nextStep = (id: string) => {
   const index = flow.indexOf(id as (typeof flow)[number])

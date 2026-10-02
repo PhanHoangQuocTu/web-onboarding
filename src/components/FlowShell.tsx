@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
-import { trackEvent } from '@/lib/gtag'
+import { clickParams, trackEvent } from '@/lib/gtag'
 import { previousStep, questionNumber, questions } from '@/lib/quiz'
 import { useFlow } from './FlowProvider'
-import { GA_EVENT, GA_PARAM } from '@/utils/const'
+import { GA_ELEMENT, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const steps = ['About you', 'Your practice', 'Your plan']
 
@@ -30,7 +30,10 @@ export function FlowShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 aria-label="Back"
                 onClick={() => {
-                  trackEvent(GA_EVENT.BACK_CLICK, { [GA_PARAM.SCREEN_NAME]: id })
+                  trackEvent(GA_EVENT.BACK_CLICK, {
+                    ...clickParams(GA_ELEMENT.BACK),
+                    [GA_PARAM.SCREEN_NAME]: id,
+                  })
                   go(previousStep(id), true)
                 }}
                 className="back-button grid size-11 place-items-center rounded-full p-0"

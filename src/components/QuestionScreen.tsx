@@ -6,9 +6,9 @@ import { IconArt } from './Art'
 import { CheckIcon } from './CheckIcon'
 import { DrawTiles } from './DrawTiles'
 import { Phrases, StickyAction } from './Ui'
-import { trackEvent } from '@/lib/gtag'
+import { clickParams, trackEvent } from '@/lib/gtag'
 import { nextStep, titleFor, type Question } from '@/lib/quiz'
-import { GA_EVENT, GA_PARAM } from '@/utils/const'
+import { GA_ELEMENT, GA_EVENT, GA_PARAM } from '@/utils/const'
 
 const labelParts = (label: string) => {
   const match = label.match(/^(.*?)\s*\(([^)]+)\)$/)
@@ -42,6 +42,7 @@ export function QuestionScreen({ question }: { question: Question }) {
       const on = !selectedValues.includes(value)
       const solo = value === question.none
       trackEvent(GA_EVENT.ANSWER_SELECT, {
+        ...clickParams(GA_ELEMENT.ANSWER, value),
         [GA_PARAM.QUESTION_ID]: question.id,
         [GA_PARAM.ANSWER_VALUE]: value,
         [GA_PARAM.SELECTED]: on,
@@ -56,6 +57,7 @@ export function QuestionScreen({ question }: { question: Question }) {
     }
     if (selected) return
     trackEvent(GA_EVENT.ANSWER_SELECT, {
+      ...clickParams(GA_ELEMENT.ANSWER, value),
       [GA_PARAM.QUESTION_ID]: question.id,
       [GA_PARAM.ANSWER_VALUE]: value,
       [GA_PARAM.SELECTED]: true,
@@ -120,7 +122,9 @@ export function QuestionScreen({ question }: { question: Question }) {
         </div>
       )}
       {question.kind === 'multi' && (
-        <StickyAction onClick={() => go(nextStep(question.id))}>Continue</StickyAction>
+        <StickyAction onClick={() => go(nextStep(question.id))} trackKey="continue">
+          Continue
+        </StickyAction>
       )}
     </>
   )

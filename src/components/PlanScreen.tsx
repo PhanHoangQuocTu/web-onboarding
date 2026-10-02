@@ -39,7 +39,11 @@ export function PlanScreen() {
       </div>
       <h3 className="brand-font mt-6 text-lg font-bold text-(--ink)">Your 7 days</h3>
       <PlanCarousel key={plan.join('|')} plan={plan} onAllRevealed={onAllRevealed} />
-      <StickyAction onClick={() => go('email')} secondary={!allRevealed}>
+      <StickyAction
+        onClick={() => go('email')}
+        secondary={!allRevealed}
+        trackKey={allRevealed ? 'continue' : 'skip_reveal'}
+      >
         {allRevealed ? 'Continue' : 'Skip reveal & continue'}
       </StickyAction>
     </>

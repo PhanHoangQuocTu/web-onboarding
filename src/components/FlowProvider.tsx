@@ -1,9 +1,17 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { setGaUser, trackEvent } from '@/lib/gtag'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import { clickParams, setGaStep, setGaUser, trackEvent } from '@/lib/gtag'
 import type { Answers, AnswerValue } from '@/lib/quiz'
-import { GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
+import { GA_ELEMENT, GA_EVENT, GA_PARAM, GA_VALUE } from '@/utils/const'
 import { OFFER_DURATION_MS, type Plan } from '@/lib/pricing'
 
 type Receipt = { plan: Plan; transactionId: string; method: string; paidToday: string }
@@ -53,6 +61,8 @@ function newSessionId() {
 export function FlowProvider({ children }: { children: React.ReactNode }) {
   const [state, update] = useState<FlowState>(initial)
   const [ready, setReady] = useState(false)
+  // Layout effects run before every passive effect, so child events see the right step.
+  useLayoutEffect(() => setGaStep(state.step), [state.step])
   useEffect(() => {
     let sessionId = ''
     try {
@@ -129,7 +139,10 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   const setEmail = (email: string) => update((s) => ({ ...s, email }))
   const revealOffer = (method: string = GA_VALUE.SCRATCH) => {
     if (state.offerRevealed) return
-    trackEvent(GA_EVENT.OFFER_REVEAL, { [GA_PARAM.METHOD]: method })
+    trackEvent(GA_EVENT.OFFER_REVEAL, {
+      ...clickParams(GA_ELEMENT.OFFER_REVEAL, method),
+      [GA_PARAM.METHOD]: method,
+    })
     update((s) => ({ ...s, offerRevealed: true }))
   }
   const setReceipt = useCallback((receipt: Receipt) => update((s) => ({ ...s, receipt })), [])

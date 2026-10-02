@@ -50,6 +50,11 @@ export const GA_PARAM = {
   DAY_INDEX: 'day_index',
   STORE: 'store',
   CONTENT_TYPE: 'content_type',
+  CLICK_ID: 'click_id',
+  CLICK_DETAIL: 'click_detail',
+  FROM_PLAN: 'from_plan',
+  ELEMENT: 'element',
+  STEP_INDEX: 'step_index',
 } as const
 
 export const GA_VALUE = {
@@ -62,6 +67,21 @@ export const GA_VALUE = {
   BACKDROP: 'backdrop',
   FAB: 'fab',
   COUNTDOWN: 'countdown',
+} as const
+
+// Second segment of click_id: `<step>.<element>[.<value>]`, e.g. `goal.answer.gift`.
+export const GA_ELEMENT = {
+  ANSWER: 'answer',
+  CTA: 'cta',
+  BACK: 'back',
+  CAROUSEL: 'carousel',
+  OFFER_REVEAL: 'offer_reveal',
+  PLAN: 'plan',
+  CHOOSE_PLAN: 'choose_plan',
+  PAY: 'pay',
+  CHECKOUT: 'checkout',
+  STORE: 'store',
+  ACTIVATION_CODE: 'activation_code',
 } as const
 
 export const FIREBASE_CONFIG = {
